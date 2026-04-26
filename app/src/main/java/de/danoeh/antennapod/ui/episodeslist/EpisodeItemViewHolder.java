@@ -1,6 +1,7 @@
 package de.danoeh.antennapod.ui.episodeslist;
 
 import android.app.Activity;
+import android.content.res.ColorStateList;
 import android.text.Layout;
 import android.text.format.Formatter;
 import android.util.Log;
@@ -26,6 +27,7 @@ import de.danoeh.antennapod.ui.common.DateFormatter;
 import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.model.playback.MediaType;
+import de.danoeh.antennapod.net.download.service.episode.AdDetectionWorker;
 import de.danoeh.antennapod.net.download.serviceinterface.DownloadServiceInterface;
 import de.danoeh.antennapod.storage.preferences.UserPreferences;
 import de.danoeh.antennapod.ui.common.Converter;
@@ -111,6 +113,13 @@ public class EpisodeItemViewHolder extends RecyclerView.ViewHolder {
         ItemActionButton actionButton = ItemActionButton.forItem(item);
         actionButton.configure(secondaryActionButton, secondaryActionIcon, activity);
         secondaryActionButton.setFocusable(false);
+
+        if (item.getMedia() != null && AdDetectionWorker.isAdDetectionComplete(activity, item.getMedia())) {
+            secondaryActionIcon.setImageTintList(
+                    ColorStateList.valueOf(activity.getResources().getColor(R.color.ad_detection_complete, activity.getTheme())));
+        } else {
+            secondaryActionIcon.setImageTintList(null);
+        }
 
         if (item.getMedia() != null) {
             bind(item.getMedia());

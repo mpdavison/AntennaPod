@@ -5,7 +5,10 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import de.danoeh.antennapod.net.download.service.episode.autodownload.AutoDownloadManagerImpl;
 import de.danoeh.antennapod.net.download.service.feed.FeedUpdateManagerImpl;
+import de.danoeh.antennapod.net.download.service.episode.AdDetectionWorker;
+import de.danoeh.antennapod.net.download.serviceinterface.AdDetectionManager;
 import de.danoeh.antennapod.net.download.serviceinterface.AutoDownloadManager;
+import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.net.download.serviceinterface.FeedUpdateManager;
 import de.danoeh.antennapod.net.sync.service.SynchronizationQueueImpl;
 import de.danoeh.antennapod.net.sync.serviceinterface.SynchronizationQueue;
@@ -50,6 +53,14 @@ public class ClientConfigurator {
         DownloadServiceInterface.setImpl(new DownloadServiceInterfaceImpl());
         FeedUpdateManager.setInstance(new FeedUpdateManagerImpl());
         AutoDownloadManager.setInstance(new AutoDownloadManagerImpl());
+        AdDetectionManager.setInstance(new AdDetectionManager() {
+            @Override
+            public void enqueueAdDetection(Context ctx, FeedItem item) {
+                if (item.getMedia() != null) {
+                    AdDetectionWorker.enqueue(ctx, item.getMedia().getId());
+                }
+            }
+        });
         SynchronizationQueue.setInstance(new SynchronizationQueueImpl(context));
         AntennapodHttpClient.setCacheDirectory(new File(context.getCacheDir(), "okhttp"));
         AntennapodHttpClient.setProxyConfig(UserPreferences.getProxyConfig());

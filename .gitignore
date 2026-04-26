@@ -30,3 +30,7 @@ gradle.properties
 .vscode
 .cursor
 *.hprof
+adskip/venv
+adskip/vm_venv
+adskip/podcasts
+__pycache__

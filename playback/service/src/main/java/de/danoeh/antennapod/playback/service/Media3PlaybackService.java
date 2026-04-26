@@ -443,6 +443,7 @@ public class Media3PlaybackService extends MediaLibraryService {
                             }
                             updatePlaybackPreferences();
                             EventBus.getDefault().post(new PlayerStatusEvent());
+                            adSkipController.onMediaLoaded(media);
                         },
                                 error -> Log.e(TAG, "Failed to load current media", error));
                 adSkipController.onReset();
