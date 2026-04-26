@@ -27,7 +27,7 @@ import de.danoeh.antennapod.ui.common.DateFormatter;
 import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.model.playback.MediaType;
-import de.danoeh.antennapod.net.download.service.episode.AdDetectionWorker;
+import de.danoeh.antennapod.net.download.serviceinterface.AdDetectionManager;
 import de.danoeh.antennapod.net.download.serviceinterface.DownloadServiceInterface;
 import de.danoeh.antennapod.storage.preferences.UserPreferences;
 import de.danoeh.antennapod.ui.common.Converter;
@@ -114,7 +114,7 @@ public class EpisodeItemViewHolder extends RecyclerView.ViewHolder {
         actionButton.configure(secondaryActionButton, secondaryActionIcon, activity);
         secondaryActionButton.setFocusable(false);
 
-        if (item.getMedia() != null && AdDetectionWorker.isAdDetectionComplete(activity, item.getMedia())) {
+        if (item.getMedia() != null && AdDetectionManager.isAdDetectionComplete(activity, item.getMedia())) {
             secondaryActionIcon.setImageTintList(
                     ColorStateList.valueOf(activity.getResources().getColor(R.color.ad_detection_complete, activity.getTheme())));
         } else {

@@ -13,7 +13,6 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
         mavenLocal()
-        maven { url 'https://alphacephei.com/maven/' }
     }
 }
 

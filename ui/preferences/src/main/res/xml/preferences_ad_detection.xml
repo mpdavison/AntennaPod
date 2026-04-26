@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen
+        xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <SwitchPreferenceCompat
+            android:key="prefAdDetectionEnabled"
+            android:title="@string/pref_ad_detection_enabled_title"
+            android:summary="@string/pref_ad_detection_enabled_sum"
+            android:defaultValue="false"/>
+
+    <PreferenceCategory android:title="@string/pref_ad_transcription_category">
+        <de.danoeh.antennapod.ui.preferences.preference.MaterialListPreference
+                android:key="prefAdTranscriptionProvider"
+                android:title="@string/pref_ad_provider_title"
+                android:entries="@array/pref_ad_provider_entries"
+                android:entryValues="@array/pref_ad_provider_values"
+                android:defaultValue="openai"/>
+        <EditTextPreference
+                android:key="prefAdTranscriptionApiKey"
+                android:title="@string/pref_ad_api_key_title"/>
+        <EditTextPreference
+                android:key="prefAdTranscriptionBaseUrl"
+                android:title="@string/pref_ad_base_url_title"
+                android:summary="@string/pref_ad_base_url_sum"/>
+        <EditTextPreference
+                android:key="prefAdTranscriptionModel"
+                android:title="@string/pref_ad_model_title"
+                android:summary="@string/pref_ad_model_sum_transcription"/>
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/pref_ad_chat_category">
+        <de.danoeh.antennapod.ui.preferences.preference.MaterialListPreference
+                android:key="prefAdChatProvider"
+                android:title="@string/pref_ad_provider_title"
+                android:entries="@array/pref_ad_provider_entries"
+                android:entryValues="@array/pref_ad_provider_values"
+                android:defaultValue="openai"/>
+        <EditTextPreference
+                android:key="prefAdChatApiKey"
+                android:title="@string/pref_ad_api_key_title"/>
+        <EditTextPreference
+                android:key="prefAdChatBaseUrl"
+                android:title="@string/pref_ad_base_url_title"
+                android:summary="@string/pref_ad_base_url_sum"/>
+        <EditTextPreference
+                android:key="prefAdChatModel"
+                android:title="@string/pref_ad_model_title"
+                android:summary="@string/pref_ad_model_sum_chat"/>
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/pref_ad_prompt_category">
+        <EditTextPreference
+                android:key="prefAdChatPrompt"
+                android:title="@string/pref_ad_prompt_title"
+                android:summary="@string/pref_ad_prompt_sum"/>
+    </PreferenceCategory>
+
+</PreferenceScreen>

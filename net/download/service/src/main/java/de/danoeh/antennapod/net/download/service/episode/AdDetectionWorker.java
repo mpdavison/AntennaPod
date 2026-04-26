@@ -1,6 +1,10 @@
 package de.danoeh.antennapod.net.download.service.episode;
 
 import android.content.Context;
+import android.media.MediaCodec;
+import android.media.MediaExtractor;
+import android.media.MediaFormat;
+import android.media.MediaMuxer;
 import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.work.Data;
@@ -9,33 +13,98 @@ import androidx.work.OneTimeWorkRequest;
 import androidx.work.WorkManager;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
+import de.danoeh.antennapod.net.download.serviceinterface.AdDetectionManager;
 import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.storage.database.DBReader;
+import de.danoeh.antennapod.storage.preferences.AdDetectionPreferences;
 import okhttp3.MediaType;
+import okhttp3.MultipartBody;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
+import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 public class AdDetectionWorker extends Worker {
     private static final String TAG = "AdDetection";
     static final String KEY_FEED_MEDIA_ID = "feedMediaId";
-    private static final String AD_SERVICE_URL = "https://adskip.1681248.com/adskip/";
-    private static final int POLL_INTERVAL_SECONDS = 60;
-    private static final int MAX_POLLS = 120;
+    private static final long MAX_CHUNK_BYTES = 24L * 1024 * 1024;
+    private static final long GAP_FILL_MS = 30_000L;
+    private static final long MAX_CHUNK_DURATION_US = 5L * 60L * 1_000_000L;
+
+    private static final String DEFAULT_CLASSIFICATION_PROMPT =
+            "You are an expert at detecting advertisements and sponsor reads in podcast transcripts.\n\n"
+            + "Advertisements often span several consecutive segments — a single ad break typically runs "
+            + "30\u2013120 seconds. Signals of an ad include:\n"
+            + "- In the beginning of a podcast episode, they often have ads for /other/ podcasts.\n"
+            + "- Many ads are played more than once throughout a podcast\n"
+            + "- Phrases like 'brought to you by', 'sponsored by', 'this episode is supported by', "
+            + "'today's sponsor', 'a word from our sponsor'\n"
+            + "- Brand names, product descriptions, pricing, discount codes (e.g. 'use code XYZ')\n"
+            + "- Website, sale or app mentions (e.g. 'blowout sale', 'go to brand.com', 'download the app')\n"
+            + "- Calls to action: 'sign up', 'try for free', 'check it out', 'click the link', 'get 20% off'\n"
+            + "- The host directly endorsing or describing a product or service\n"
+            + "- Topic suddenly shifting away from the main content and then returning\n"
+            + "- Mentions of other podcasts, especially in a promotional context\n"
+            + "- References to podcast platforms or ad networks (e.g. 'available on Spotify', "
+            + "'listen on Apple Podcasts', 'wherever you get your podcasts')\n"
+            + "- Look out for podcast content resumption phrases (e.g. 'welcome back') to help identify where ads end\n"
+            + "- Political ads often mention candidates, parties, voting, elections, or political issues\n\n"
+            + "IMPORTANT: A single ad break is usually spread across MULTIPLE consecutive segments. "
+            + "Always use the startMs of the FIRST segment of the ad break and the endMs of the LAST segment "
+            + "of the same break. It is very unlikely that an ad segment is less than 15 seconds.\n\n"
+            + "EXTRA CRITICALLY IMPORTANT: Make a second pass before returning the output. If any ads are "
+            + "close together but separated by a non-ad segment (like one minute or less of non-ad time "
+            + "between the end of one ad and the start of the next), then it is likely that the time in "
+            + "between the ads is really just more ad content, so mark that as ad content, too.\n\n"
+            + "Return a JSON object: {\"ads\": [{\"startMs\": <int>, \"endMs\": <int>}, ...]}\n"
+            + "If there are no ads return {\"ads\": []}.";
+
+    private static class AudioChunk {
+        final File file;
+        final double offsetSeconds;
+        final boolean isTemp;
+
+        AudioChunk(File file, double offsetSeconds, boolean isTemp) {
+            this.file = file;
+            this.offsetSeconds = offsetSeconds;
+            this.isTemp = isTemp;
+        }
+    }
+
+    private static class Segment {
+        final long startMs;
+        final long endMs;
+        final String text;
+
+        Segment(long startMs, long endMs, String text) {
+            this.startMs = startMs;
+            this.endMs = endMs;
+            this.text = text;
+        }
+    }
 
     public AdDetectionWorker(@NonNull Context context, @NonNull WorkerParameters params) {
         super(context, params);
     }
 
     public static void enqueue(Context context, long feedMediaId) {
+        if (!AdDetectionPreferences.isEnabled()) {
+            return;
+        }
         Data inputData = new Data.Builder()
                 .putLong(KEY_FEED_MEDIA_ID, feedMediaId)
                 .build();
@@ -47,127 +116,457 @@ public class AdDetectionWorker extends Worker {
                         .build());
     }
 
-    public static File adTimestampsFileFor(Context context, FeedMedia media) {
-        if (media.getLocalFileUrl() != null) {
-            return new File(media.getLocalFileUrl() + ".adtimestamps");
-        }
-        File dir = new File(context.getCacheDir(), "adtimestamps");
-        dir.mkdirs();
-        return new File(dir, media.getId() + ".adtimestamps");
-    }
-
-    public static boolean isAdDetectionComplete(Context context, FeedMedia media) {
-        File file = adTimestampsFileFor(context, media);
-        if (!file.exists()) {
-            return false;
-        }
-        try (FileInputStream fis = new FileInputStream(file)) {
-            byte[] buf = new byte[200];
-            int read = fis.read(buf, 0, buf.length);
-            String head = new String(buf, 0, Math.max(read, 0), StandardCharsets.UTF_8);
-            return head.contains("\"complete\"");
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
     @NonNull
     @Override
     public Result doWork() {
+        if (!AdDetectionPreferences.isEnabled()) {
+            return Result.success();
+        }
         long feedMediaId = getInputData().getLong(KEY_FEED_MEDIA_ID, -1);
-        Log.i(TAG, "doWork() started for feedMediaId=" + feedMediaId);
         if (feedMediaId < 0) {
-            Log.w(TAG, "Invalid feedMediaId, aborting");
             return Result.failure();
         }
         FeedMedia media = DBReader.getFeedMedia(feedMediaId);
         if (media == null) {
-            Log.w(TAG, "Media not found for id " + feedMediaId);
             return Result.success();
         }
-        File outFile = adTimestampsFileFor(getApplicationContext(), media);
+        if (AdDetectionManager.isAdDetectionComplete(getApplicationContext(), media)) {
+            return Result.success();
+        }
+        AdDetectionManager.adTimestampsFileFor(getApplicationContext(), media).delete();
+        String transcriptionApiKey = AdDetectionPreferences.getTranscriptionApiKey();
+        String chatApiKey = AdDetectionPreferences.getChatApiKey();
+        if (transcriptionApiKey.isEmpty() || chatApiKey.isEmpty()) {
+            Log.w(TAG, "API keys not configured, skipping ad detection");
+            return Result.success();
+        }
         String episodeUrl = media.getDownloadUrl();
         if (episodeUrl == null || episodeUrl.isEmpty()) {
-            Log.w(TAG, "No episode URL for media " + feedMediaId);
             return Result.success();
         }
+        String episodeTitle = media.getItem() != null ? media.getItem().getTitle() : episodeUrl;
+        Log.i(TAG, "Starting ad detection for: " + episodeTitle);
+
         OkHttpClient client = new OkHttpClient.Builder()
                 .connectTimeout(30, TimeUnit.SECONDS)
-                .readTimeout(30, TimeUnit.SECONDS)
+                .readTimeout(120, TimeUnit.SECONDS)
                 .build();
-        pollWithPost(client, episodeUrl, outFile);
+
+        File audioFile = null;
+        boolean isDownloaded = false;
+        if (media.isDownloaded() && media.getLocalFileUrl() != null) {
+            File local = new File(media.getLocalFileUrl());
+            if (local.exists()) {
+                audioFile = local;
+            }
+        }
+        if (audioFile == null) {
+            audioFile = new File(getApplicationContext().getCacheDir(), feedMediaId + ".adskip_audio");
+            try {
+                downloadFile(client, episodeUrl, audioFile);
+                isDownloaded = true;
+            } catch (IOException e) {
+                Log.w(TAG, "Failed to download audio: " + e.getMessage());
+                audioFile.delete();
+                return Result.success();
+            }
+        }
+
+        List<AudioChunk> chunks = null;
+        try {
+            chunks = splitAudio(audioFile);
+            Log.i(TAG, "Audio split into " + chunks.size() + " chunk(s)");
+
+            List<Segment> allSegments = new ArrayList<>();
+            String transcriptionBaseUrl = AdDetectionPreferences.getTranscriptionBaseUrl();
+            String transcriptionModel = AdDetectionPreferences.getTranscriptionModel();
+            int transcriptionSuccesses = 0;
+            for (int i = 0; i < chunks.size(); i++) {
+                Log.i(TAG, "Transcribing chunk " + (i + 1) + "/" + chunks.size());
+                try {
+                    List<Segment> segs = transcribeChunk(chunks.get(i), client,
+                            transcriptionApiKey, transcriptionBaseUrl, transcriptionModel);
+                    allSegments.addAll(segs);
+                    transcriptionSuccesses++;
+                } catch (Exception e) {
+                    Log.w(TAG, "Transcription of chunk " + i + " failed: " + e.getMessage());
+                }
+            }
+
+            if (transcriptionSuccesses == 0 && !chunks.isEmpty()) {
+                Log.w(TAG, "All transcription chunks failed, will retry later");
+                return Result.success();
+            }
+
+            Log.i(TAG, "Classifying " + allSegments.size() + " transcript segments");
+            String chatBaseUrl = AdDetectionPreferences.getChatBaseUrl();
+            String chatModel = AdDetectionPreferences.getChatModel();
+            String chatPrompt = AdDetectionPreferences.getChatPrompt();
+            List<long[]> ads = classifyAds(allSegments, client,
+                    chatApiKey, chatBaseUrl, chatModel, chatPrompt);
+            ads = mergeConsecutiveAds(ads);
+
+            File outFile = AdDetectionManager.adTimestampsFileFor(getApplicationContext(), media);
+            writeAdTimestamps(outFile, ads);
+            Log.i(TAG, "Ad detection complete: " + ads.size() + " ad segment(s) for " + episodeTitle);
+        } catch (Exception e) {
+            Log.e(TAG, "Ad detection failed: " + e.getMessage());
+        } finally {
+            if (chunks != null) {
+                for (AudioChunk chunk : chunks) {
+                    if (chunk.isTemp) {
+                        chunk.file.delete();
+                    }
+                }
+            }
+            if (isDownloaded && audioFile != null) {
+                audioFile.delete();
+            }
+        }
         return Result.success();
     }
 
-    private void pollWithPost(OkHttpClient client, String episodeUrl, File outFile) {
-        long feedMediaId = getInputData().getLong(KEY_FEED_MEDIA_ID, -1);
-        FeedMedia media = DBReader.getFeedMedia(feedMediaId);
-        String podcastName = null;
-        String podcastUrl = null;
-        String episodeTitle = null;
-        if (media != null && media.getItem() != null) {
-            episodeTitle = media.getItem().getTitle();
-            if (media.getItem().getFeed() != null) {
-                podcastName = media.getItem().getFeed().getTitle();
-                podcastUrl = media.getItem().getFeed().getDownloadUrl();
+    private void downloadFile(OkHttpClient client, String url, File dest) throws IOException {
+        Request request = new Request.Builder().url(url).build();
+        try (Response response = client.newCall(request).execute()) {
+            if (!response.isSuccessful() || response.body() == null) {
+                throw new IOException("Download failed: HTTP " + response.code());
             }
-        }
-        for (int attempt = 1; attempt <= MAX_POLLS; attempt++) {
-            Log.i(TAG, "Posting for ad timestamps, attempt " + attempt + "/" + MAX_POLLS);
-            try {
-                JSONObject body = new JSONObject();
-                body.put("url", episodeUrl);
-                if (podcastName != null) {
-                    body.put("podcast_name", podcastName);
-                }
-                if (podcastUrl != null) {
-                    body.put("podcast_url", podcastUrl);
-                }
-                if (episodeTitle != null) {
-                    body.put("episode_title", episodeTitle);
-                }
-                RequestBody requestBody = RequestBody.create(
-                        body.toString(), MediaType.get("application/json"));
-                Request request = new Request.Builder()
-                        .url(AD_SERVICE_URL)
-                        .post(requestBody)
-                        .build();
-                try (Response response = client.newCall(request).execute()) {
-                    if (response.code() == 200 && response.body() != null) {
-                        String json = response.body().string();
-                        writeAdTimestamps(outFile, json);
-                        Log.i(TAG, "Ad timestamps written (attempt " + attempt + "): " + outFile.getPath());
-                        JSONObject obj = new JSONObject(json);
-                        if ("complete".equals(obj.optString("status"))) {
-                            Log.i(TAG, "Processing complete, stopping poll");
-                            return;
-                        }
-                        Log.i(TAG, "Processing still in progress, will poll again");
-                    } else {
-                        Log.i(TAG, "Ad service returned HTTP " + response.code());
-                    }
-                }
-            } catch (Exception e) {
-                Log.w(TAG, "Poll attempt " + attempt + " failed: " + e.getMessage());
-            }
-            if (attempt < MAX_POLLS) {
-                try {
-                    Thread.sleep(POLL_INTERVAL_SECONDS * 1000L);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    return;
+            try (FileOutputStream fos = new FileOutputStream(dest);
+                    InputStream is = response.body().byteStream()) {
+                byte[] buf = new byte[65536];
+                int read;
+                while ((read = is.read(buf)) >= 0) {
+                    fos.write(buf, 0, read);
                 }
             }
         }
-        Log.w(TAG, "Gave up polling for ad timestamps after " + MAX_POLLS + " attempts");
     }
 
-    private void writeAdTimestamps(File file, String json) throws IOException {
-        if (file.exists() && !file.delete()) {
-            Log.w(TAG, "Could not delete existing ad timestamps file");
+    private List<AudioChunk> splitAudio(File audioFile) {
+        MediaExtractor probe = new MediaExtractor();
+        try {
+            probe.setDataSource(audioFile.getAbsolutePath());
+            int audioTrack = -1;
+            MediaFormat audioFormat = null;
+            String mime = null;
+            for (int i = 0; i < probe.getTrackCount(); i++) {
+                MediaFormat fmt = probe.getTrackFormat(i);
+                String m = fmt.getString(MediaFormat.KEY_MIME);
+                if (m != null && m.startsWith("audio/")) {
+                    audioTrack = i;
+                    audioFormat = fmt;
+                    mime = m;
+                    break;
+                }
+            }
+            if (audioTrack < 0 || audioFormat == null) {
+                return Collections.singletonList(new AudioChunk(audioFile, 0, false));
+            }
+            long durationUs = audioFormat.containsKey(MediaFormat.KEY_DURATION)
+                    ? audioFormat.getLong(MediaFormat.KEY_DURATION) : 0;
+            if (durationUs <= 0) {
+                return Collections.singletonList(new AudioChunk(audioFile, 0, false));
+            }
+            if ("audio/mp4a-latm".equals(mime)) {
+                return splitWithMuxer(audioFile, audioFormat, audioTrack, durationUs);
+            } else {
+                return splitByBytes(audioFile, durationUs);
+            }
+        } catch (IOException e) {
+            Log.w(TAG, "Audio probe failed: " + e.getMessage());
+            return Collections.singletonList(new AudioChunk(audioFile, 0, false));
+        } finally {
+            probe.release();
         }
-        try (FileOutputStream fos = new FileOutputStream(file)) {
-            fos.write(json.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private List<AudioChunk> splitWithMuxer(File audioFile, MediaFormat audioFormat,
+            int audioTrackIndex, long durationUs) {
+        long fileSizeBytes = audioFile.length();
+        long chunkDurationUs = (long) ((double) durationUs * MAX_CHUNK_BYTES / fileSizeBytes);
+        chunkDurationUs = Math.min(chunkDurationUs, MAX_CHUNK_DURATION_US);
+        long mediaId = getInputData().getLong(KEY_FEED_MEDIA_ID, 0);
+        List<AudioChunk> chunks = new ArrayList<>();
+        long currentStartUs = 0;
+        int chunkIdx = 0;
+
+        while (currentStartUs < durationUs) {
+            long chunkEndUs = Math.min(currentStartUs + chunkDurationUs, durationUs);
+            File chunkFile = new File(getApplicationContext().getCacheDir(),
+                    "adskip_" + mediaId + "_" + chunkIdx + ".m4a");
+            MediaExtractor extractor = new MediaExtractor();
+            MediaMuxer muxer = null;
+            boolean muxerStarted = false;
+            try {
+                extractor.setDataSource(audioFile.getAbsolutePath());
+                extractor.selectTrack(audioTrackIndex);
+                extractor.seekTo(currentStartUs, MediaExtractor.SEEK_TO_PREVIOUS_SYNC);
+                muxer = new MediaMuxer(chunkFile.getAbsolutePath(),
+                        MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+                int muxerTrack = muxer.addTrack(audioFormat);
+                muxer.start();
+                muxerStarted = true;
+                ByteBuffer buffer = ByteBuffer.allocate(512 * 1024);
+                MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
+                while (true) {
+                    int sampleSize = extractor.readSampleData(buffer, 0);
+                    if (sampleSize < 0) {
+                        break;
+                    }
+                    long sampleTimeUs = extractor.getSampleTime();
+                    if (sampleTimeUs > chunkEndUs) {
+                        break;
+                    }
+                    info.offset = 0;
+                    info.size = sampleSize;
+                    info.presentationTimeUs = sampleTimeUs;
+                    info.flags = extractor.getSampleFlags();
+                    muxer.writeSampleData(muxerTrack, buffer, info);
+                    extractor.advance();
+                }
+                muxer.stop();
+                muxerStarted = false;
+                chunks.add(new AudioChunk(chunkFile, currentStartUs / 1_000_000.0, true));
+            } catch (Exception e) {
+                Log.w(TAG, "Muxer failed for chunk " + chunkIdx + ": " + e.getMessage());
+                chunkFile.delete();
+                for (AudioChunk c : chunks) {
+                    if (c.isTemp) {
+                        c.file.delete();
+                    }
+                }
+                return Collections.singletonList(new AudioChunk(audioFile, 0, false));
+            } finally {
+                extractor.release();
+                if (muxer != null) {
+                    if (muxerStarted) {
+                        try { muxer.stop(); } catch (Exception ignored) { }
+                    }
+                    muxer.release();
+                }
+            }
+            currentStartUs = chunkEndUs;
+            chunkIdx++;
+        }
+        return chunks;
+    }
+
+    private List<AudioChunk> splitByBytes(File audioFile, long durationUs) throws IOException {
+        long fileSizeBytes = audioFile.length();
+        long mediaId = getInputData().getLong(KEY_FEED_MEDIA_ID, 0);
+        String name = audioFile.getName();
+        String ext = name.contains(".") ? name.substring(name.lastIndexOf('.')) : ".mp3";
+        List<AudioChunk> chunks = new ArrayList<>();
+        int chunkBytes = (int) Math.min(MAX_CHUNK_BYTES,
+                (long) ((double) MAX_CHUNK_DURATION_US / durationUs * fileSizeBytes));
+        byte[] buf = new byte[chunkBytes];
+        long bytesRead = 0;
+        int chunkIdx = 0;
+        try (FileInputStream fis = new FileInputStream(audioFile)) {
+            while (true) {
+                int total = 0;
+                while (total < buf.length) {
+                    int read = fis.read(buf, total, buf.length - total);
+                    if (read < 0) {
+                        break;
+                    }
+                    total += read;
+                }
+                if (total <= 0) {
+                    break;
+                }
+                int start = 0;
+                if (chunkIdx > 0) {
+                    for (int i = 0; i < total - 1; i++) {
+                        if ((buf[i] & 0xFF) == 0xFF && (buf[i + 1] & 0xE0) == 0xE0) {
+                            start = i;
+                            break;
+                        }
+                    }
+                }
+                double offsetSeconds = (double) bytesRead / fileSizeBytes * (durationUs / 1_000_000.0);
+                File chunkFile = new File(getApplicationContext().getCacheDir(),
+                        "adskip_" + mediaId + "_" + chunkIdx + ext);
+                try (FileOutputStream fos = new FileOutputStream(chunkFile)) {
+                    fos.write(buf, start, total - start);
+                }
+                chunks.add(new AudioChunk(chunkFile, offsetSeconds, true));
+                bytesRead += total;
+                chunkIdx++;
+            }
+        }
+        return chunks.isEmpty()
+                ? Collections.singletonList(new AudioChunk(audioFile, 0, false))
+                : chunks;
+    }
+
+    private List<Segment> transcribeChunk(AudioChunk chunk, OkHttpClient client,
+            String apiKey, String baseUrl, String model) throws IOException, JSONException {
+        String fileName = chunk.file.getName();
+        String mimeType = fileName.endsWith(".m4a") ? "audio/mp4" : "audio/mpeg";
+        RequestBody fileBody = RequestBody.create(chunk.file, MediaType.get(mimeType));
+        RequestBody requestBody = new MultipartBody.Builder()
+                .setType(MultipartBody.FORM)
+                .addFormDataPart("file", fileName, fileBody)
+                .addFormDataPart("model", model)
+                .addFormDataPart("response_format", "verbose_json")
+                .addFormDataPart("timestamp_granularities[]", "segment")
+                .build();
+        Request request = new Request.Builder()
+                .url(baseUrl + "/audio/transcriptions")
+                .header("Authorization", "Bearer " + apiKey)
+                .post(requestBody)
+                .build();
+        try (Response response = client.newCall(request).execute()) {
+            String body = response.body() != null ? response.body().string() : "";
+            if (!response.isSuccessful()) {
+                throw new IOException("Transcription API error: HTTP " + response.code() + " " + body);
+            }
+            return parseSegments(body, chunk.offsetSeconds);
+        }
+    }
+
+    private List<Segment> parseSegments(String json, double offsetSeconds) throws JSONException {
+        JSONObject root = new JSONObject(json);
+        JSONArray segments = root.optJSONArray("segments");
+        if (segments == null) {
+            return Collections.emptyList();
+        }
+        List<Segment> result = new ArrayList<>();
+        for (int i = 0; i < segments.length(); i++) {
+            JSONObject seg = segments.getJSONObject(i);
+            long startMs = (long) ((seg.getDouble("start") + offsetSeconds) * 1000);
+            long endMs = (long) ((seg.getDouble("end") + offsetSeconds) * 1000);
+            String text = seg.optString("text", "").trim();
+            result.add(new Segment(startMs, endMs, text));
+        }
+        return result;
+    }
+
+    private List<long[]> classifyAds(List<Segment> segments, OkHttpClient client,
+            String apiKey, String baseUrl, String model, String customPrompt)
+            throws IOException, JSONException {
+        if (segments.isEmpty()) {
+            return Collections.emptyList();
+        }
+        StringBuilder lines = new StringBuilder();
+        for (int i = 0; i < segments.size(); i++) {
+            Segment s = segments.get(i);
+            lines.append("[").append(i).append("] ")
+                    .append(s.startMs).append("-").append(s.endMs).append(": ")
+                    .append(s.text).append("\n");
+        }
+        String basePrompt = (customPrompt == null || customPrompt.isEmpty())
+                ? DEFAULT_CLASSIFICATION_PROMPT : customPrompt;
+
+        JSONObject systemMessage = new JSONObject();
+        systemMessage.put("role", "system");
+        systemMessage.put("content", basePrompt);
+
+        JSONObject userMessage = new JSONObject();
+        userMessage.put("role", "user");
+        userMessage.put("content", "Transcript segments (format: [index] startMs-endMs: text):\n"
+                + lines
+                + "\nRespond with ONLY the JSON object. No explanation, no markdown, no other text.");
+
+        JSONArray messages = new JSONArray();
+        messages.put(systemMessage);
+        messages.put(userMessage);
+        JSONObject body = new JSONObject();
+        body.put("model", model);
+        body.put("stream", false);
+        body.put("messages", messages);
+
+        Request request = new Request.Builder()
+                .url(baseUrl + "/chat/completions")
+                .header("Authorization", "Bearer " + apiKey)
+                .post(RequestBody.create(body.toString(), MediaType.get("application/json")))
+                .build();
+        try (Response response = client.newCall(request).execute()) {
+            String responseBody = response.body() != null ? response.body().string() : "";
+            if (!response.isSuccessful()) {
+                throw new IOException("Chat API error: HTTP " + response.code() + " " + responseBody);
+            }
+            return parseAdSegments(responseBody);
+        }
+    }
+
+    private List<long[]> parseAdSegments(String json) throws JSONException {
+        Log.d(TAG, "Chat response: " + json);
+        JSONObject root = new JSONObject(json);
+        String content = root.getJSONArray("choices")
+                .getJSONObject(0)
+                .getJSONObject("message")
+                .getString("content");
+        int jsonStart = content.indexOf('{');
+        int jsonEnd = content.lastIndexOf('}');
+        if (jsonStart < 0 || jsonEnd <= jsonStart) {
+            return Collections.emptyList();
+        }
+        content = content.substring(jsonStart, jsonEnd + 1);
+        JSONArray adsArray = new JSONObject(content).optJSONArray("ads");
+        if (adsArray == null) {
+            return Collections.emptyList();
+        }
+        List<long[]> ads = new ArrayList<>();
+        for (int i = 0; i < adsArray.length(); i++) {
+            JSONObject ad = adsArray.getJSONObject(i);
+            long start = ad.has("startMs") ? ad.getLong("startMs") : ad.getLong("start");
+            long end = ad.has("endMs") ? ad.getLong("endMs") : ad.getLong("end");
+            ads.add(new long[]{start, end});
+        }
+        return ads;
+    }
+
+    private List<long[]> mergeConsecutiveAds(List<long[]> ads) {
+        if (ads.isEmpty()) {
+            return ads;
+        }
+        List<long[]> sorted = new ArrayList<>(ads);
+        sorted.sort((a, b) -> Long.compare(a[0], b[0]));
+        List<long[]> merged = new ArrayList<>();
+        merged.add(sorted.get(0).clone());
+        for (int i = 1; i < sorted.size(); i++) {
+            long[] current = sorted.get(i);
+            long[] last = merged.get(merged.size() - 1);
+            if (current[0] - last[1] <= GAP_FILL_MS) {
+                last[1] = Math.max(last[1], current[1]);
+            } else {
+                merged.add(current.clone());
+            }
+        }
+        return merged;
+    }
+
+    private void writeAdTimestamps(File outFile, List<long[]> ads) throws IOException, JSONException {
+        JSONArray adsArray = new JSONArray();
+        for (long[] ad : ads) {
+            JSONObject adObj = new JSONObject();
+            adObj.put("startMs", ad[0]);
+            adObj.put("endMs", ad[1]);
+            adsArray.put(adObj);
+        }
+        JSONObject root = new JSONObject();
+        root.put("status", "complete");
+        root.put("ads", adsArray);
+
+        File tmpFile = new File(outFile.getParent(), outFile.getName() + ".tmp");
+        tmpFile.getParentFile().mkdirs();
+        try (FileOutputStream fos = new FileOutputStream(tmpFile)) {
+            fos.write(root.toString().getBytes(StandardCharsets.UTF_8));
+        }
+        if (!tmpFile.renameTo(outFile)) {
+            try (FileInputStream fis = new FileInputStream(tmpFile);
+                    FileOutputStream fos = new FileOutputStream(outFile)) {
+                byte[] buf = new byte[8192];
+                int read;
+                while ((read = fis.read(buf)) >= 0) {
+                    fos.write(buf, 0, read);
+                }
+            } finally {
+                tmpFile.delete();
+            }
         }
     }
 }

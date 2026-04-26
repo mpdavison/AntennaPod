@@ -4,7 +4,6 @@ import android.content.Context;
 import android.media.AudioManager;
 import android.media.ToneGenerator;
 import android.util.Log;
-import de.danoeh.antennapod.net.download.service.episode.AdDetectionWorker;
 import de.danoeh.antennapod.net.download.serviceinterface.AdDetectionManager;
 import de.danoeh.antennapod.event.MessageEvent;
 import de.danoeh.antennapod.model.feed.FeedMedia;
@@ -18,6 +17,7 @@ import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -40,8 +40,8 @@ public class AdSkipController {
     private boolean processingComplete = false;
     private long currentMediaId = -1;
     private long furthestPositionMs = 0;
-    private final Set<Integer> skippedSegments = new HashSet<>();
-    private final Set<Integer> suppressedSegments = new HashSet<>();
+    private final Set<Integer> skippedSegments = Collections.synchronizedSet(new HashSet<>());
+    private final Set<Integer> suppressedSegments = Collections.synchronizedSet(new HashSet<>());
     private long lastLoadAttemptMs = 0;
 
     public AdSkipController(Context context, SeekCallback seekCallback) {
@@ -71,7 +71,7 @@ public class AdSkipController {
         furthestPositionMs = 0;
         if (media != null && media.getDownloadUrl() != null) {
             currentMediaId = media.getId();
-            File tsFile = AdDetectionWorker.adTimestampsFileFor(context, media);
+            File tsFile = AdDetectionManager.adTimestampsFileFor(context, media);
             adTimestampsPath = tsFile.getAbsolutePath();
             tryLoadAdSegments();
             if (!processingComplete && media.getItem() != null) {

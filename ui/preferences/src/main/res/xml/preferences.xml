@@ -30,6 +30,12 @@
             android:icon="@drawable/ic_download" />
 
     <Preference
+            android:key="prefScreenAdDetection"
+            android:title="@string/pref_ad_detection_title"
+            android:summary="@string/pref_ad_detection_sum"
+            android:icon="@drawable/ic_skip_24dp" />
+
+    <Preference
             android:key="prefScreenSynchronization"
             android:title="@string/synchronization_pref"
             android:summary="@string/synchronization_sum"

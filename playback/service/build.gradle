@@ -34,7 +34,6 @@ dependencies {
     implementation project(':ui:notifications')
     implementation project(':ui:widget')
     implementation project(':ui:chapters')
-    implementation project(':net:download:service')
     implementation project(':net:download:service-interface')
     implementation "androidx.work:work-runtime:$workManagerVersion"
 
