@@ -359,6 +359,7 @@
     </plurals>
     <string name="download_notification_title_feeds">Refreshing podcasts</string>
     <string name="download_notification_title_episodes">Downloading episodes</string>
+    <string name="ad_detection_notification_title">Detecting ads</string>
     <string name="download_log_title_unknown">Unknown title</string>
     <string name="download_type_feed">Feed</string>
     <string name="download_type_media">Media file</string>
@@ -565,6 +566,7 @@
     <string name="pref_ad_transcription_category">Transcription (Whisper)</string>
     <string name="pref_ad_chat_category">Classification (Chat)</string>
     <string name="pref_ad_provider_title">Provider</string>
+    <string name="pref_ad_provider_custom">Custom</string>
     <string name="pref_ad_api_key_title">API key</string>
     <string name="pref_ad_api_key_not_set">Not set</string>
     <string name="pref_ad_api_key_set">Set</string>
@@ -576,6 +578,16 @@
     <string name="pref_ad_prompt_category">Prompt</string>
     <string name="pref_ad_prompt_title">Classification prompt</string>
     <string name="pref_ad_prompt_sum">Prompt sent to the chat model to identify ad segments. Leave empty to use the built-in default.</string>
+    <string name="pref_ad_active_profile_title">Active profile</string>
+    <string name="pref_ad_manage_profiles_title">Manage profiles</string>
+    <string name="pref_ad_transcription_profiles_title">Transcription profiles</string>
+    <string name="pref_ad_chat_profiles_title">Classification profiles</string>
+    <string name="pref_ad_profiles_empty">No profiles yet</string>
+    <string name="pref_ad_profile_add">Add profile</string>
+    <string name="pref_ad_profile_edit">Edit profile</string>
+    <string name="pref_ad_profile_active">Active</string>
+    <string name="pref_ad_profile_name">Name</string>
+    <string name="pref_ad_profile_unnamed">(unnamed)</string>
     <string-array name="pref_ad_provider_entries">
         <item>OpenAI</item>
         <item>Groq</item>

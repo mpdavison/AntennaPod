@@ -33,4 +33,7 @@ gradle.properties
 adskip/venv
 adskip/vm_venv
 adskip/podcasts
+adskip/.env
+adskip/*log
+adskip/duckdb*
 __pycache__

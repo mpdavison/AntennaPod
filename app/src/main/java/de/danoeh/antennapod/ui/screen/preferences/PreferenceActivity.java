@@ -131,6 +131,13 @@ public class PreferenceActivity extends ToolbarActivity implements SearchPrefere
         return fragment;
     }
 
+    public void openCustomFragment(androidx.fragment.app.Fragment fragment) {
+        getSupportFragmentManager().beginTransaction()
+                .replace(binding.settingsContainer.getId(), fragment)
+                .addToBackStack(null)
+                .commit();
+    }
+
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         if (item.getItemId() == android.R.id.home) {

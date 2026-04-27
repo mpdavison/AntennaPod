@@ -1,5 +1,6 @@
 package de.danoeh.antennapod.net.download.service.episode;
 
+import android.app.Notification;
 import android.content.Context;
 import android.media.MediaCodec;
 import android.media.MediaExtractor;
@@ -7,12 +8,19 @@ import android.media.MediaFormat;
 import android.media.MediaMuxer;
 import android.util.Log;
 import androidx.annotation.NonNull;
+import android.content.pm.ServiceInfo;
+import androidx.core.app.NotificationCompat;
 import androidx.work.Data;
 import androidx.work.ExistingWorkPolicy;
+import androidx.work.ForegroundInfo;
 import androidx.work.OneTimeWorkRequest;
 import androidx.work.WorkManager;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import de.danoeh.antennapod.net.download.service.R;
+import de.danoeh.antennapod.ui.notifications.NotificationUtils;
 import de.danoeh.antennapod.net.download.serviceinterface.AdDetectionManager;
 import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.storage.database.DBReader;
@@ -46,32 +54,7 @@ public class AdDetectionWorker extends Worker {
     private static final long MAX_CHUNK_DURATION_US = 5L * 60L * 1_000_000L;
 
     private static final String DEFAULT_CLASSIFICATION_PROMPT =
-            "You are an expert at detecting advertisements and sponsor reads in podcast transcripts.\n\n"
-            + "Advertisements often span several consecutive segments — a single ad break typically runs "
-            + "30\u2013120 seconds. Signals of an ad include:\n"
-            + "- In the beginning of a podcast episode, they often have ads for /other/ podcasts.\n"
-            + "- Many ads are played more than once throughout a podcast\n"
-            + "- Phrases like 'brought to you by', 'sponsored by', 'this episode is supported by', "
-            + "'today's sponsor', 'a word from our sponsor'\n"
-            + "- Brand names, product descriptions, pricing, discount codes (e.g. 'use code XYZ')\n"
-            + "- Website, sale or app mentions (e.g. 'blowout sale', 'go to brand.com', 'download the app')\n"
-            + "- Calls to action: 'sign up', 'try for free', 'check it out', 'click the link', 'get 20% off'\n"
-            + "- The host directly endorsing or describing a product or service\n"
-            + "- Topic suddenly shifting away from the main content and then returning\n"
-            + "- Mentions of other podcasts, especially in a promotional context\n"
-            + "- References to podcast platforms or ad networks (e.g. 'available on Spotify', "
-            + "'listen on Apple Podcasts', 'wherever you get your podcasts')\n"
-            + "- Look out for podcast content resumption phrases (e.g. 'welcome back') to help identify where ads end\n"
-            + "- Political ads often mention candidates, parties, voting, elections, or political issues\n\n"
-            + "IMPORTANT: A single ad break is usually spread across MULTIPLE consecutive segments. "
-            + "Always use the startMs of the FIRST segment of the ad break and the endMs of the LAST segment "
-            + "of the same break. It is very unlikely that an ad segment is less than 15 seconds.\n\n"
-            + "EXTRA CRITICALLY IMPORTANT: Make a second pass before returning the output. If any ads are "
-            + "close together but separated by a non-ad segment (like one minute or less of non-ad time "
-            + "between the end of one ad and the start of the next), then it is likely that the time in "
-            + "between the ads is really just more ad content, so mark that as ad content, too.\n\n"
-            + "Return a JSON object: {\"ads\": [{\"startMs\": <int>, \"endMs\": <int>}, ...]}\n"
-            + "If there are no ads return {\"ads\": []}.";
+            AdDetectionPreferences.DEFAULT_CLASSIFICATION_PROMPT;
 
     private static class AudioChunk {
         final File file;
@@ -118,10 +101,28 @@ public class AdDetectionWorker extends Worker {
 
     @NonNull
     @Override
+    public ListenableFuture<ForegroundInfo> getForegroundInfoAsync() {
+        return Futures.immediateFuture(new ForegroundInfo(R.id.notification_ad_detection, createNotification(),
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC));
+    }
+
+    private Notification createNotification() {
+        return new NotificationCompat.Builder(getApplicationContext(), NotificationUtils.CHANNEL_ID_DOWNLOADING)
+                .setContentTitle(getApplicationContext().getString(R.string.ad_detection_notification_title))
+                .setSmallIcon(R.drawable.ic_notification_sync)
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+                .build();
+    }
+
+    @NonNull
+    @Override
     public Result doWork() {
         if (!AdDetectionPreferences.isEnabled()) {
             return Result.success();
         }
+        setForegroundAsync(new ForegroundInfo(R.id.notification_ad_detection, createNotification(),
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC));
         long feedMediaId = getInputData().getLong(KEY_FEED_MEDIA_ID, -1);
         if (feedMediaId < 0) {
             return Result.failure();
