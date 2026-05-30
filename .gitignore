@@ -37,3 +37,4 @@ adskip/.env
 adskip/*log
 adskip/duckdb*
 __pycache__
+venv

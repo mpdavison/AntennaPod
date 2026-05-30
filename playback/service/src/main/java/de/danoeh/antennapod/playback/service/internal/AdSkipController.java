@@ -8,7 +8,6 @@ import de.danoeh.antennapod.net.download.serviceinterface.AdDetectionManager;
 import de.danoeh.antennapod.event.MessageEvent;
 import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.playback.service.R;
-import de.danoeh.antennapod.storage.preferences.AdDetectionPreferences;
 import org.greenrobot.eventbus.EventBus;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -40,7 +39,7 @@ public class AdSkipController {
     private List<long[]> adSegments = null;
     private boolean processingComplete = false;
     private long currentMediaId = -1;
-    private long furthestPositionMs = 0;
+    private volatile long furthestPositionMs = 0;
     private final Set<Integer> skippedSegments = Collections.synchronizedSet(new HashSet<>());
     private final Set<Integer> suppressedSegments = Collections.synchronizedSet(new HashSet<>());
     private long lastLoadAttemptMs = 0;
@@ -60,7 +59,6 @@ public class AdSkipController {
         skippedSegments.clear();
         suppressedSegments.clear();
         lastLoadAttemptMs = 0;
-        AdProxyTimestampPoller.stop();
     }
 
     public void onMediaLoaded(FeedMedia media) {
@@ -71,18 +69,13 @@ public class AdSkipController {
         processingComplete = false;
         currentMediaId = -1;
         furthestPositionMs = 0;
-        AdProxyTimestampPoller.stop();
         if (media != null && media.getDownloadUrl() != null) {
             currentMediaId = media.getId();
             File tsFile = AdDetectionManager.adTimestampsFileFor(context, media);
             adTimestampsPath = tsFile.getAbsolutePath();
             tryLoadAdSegments();
-            if (!processingComplete) {
-                if (AdDetectionPreferences.isProxyEnabled()) {
-                    AdProxyTimestampPoller.start(context, media);
-                } else if (media.getItem() != null && AdDetectionManager.getInstance() != null) {
-                    AdDetectionManager.getInstance().enqueueAdDetection(context, media.getItem());
-                }
+            if (!processingComplete && media.getItem() != null && AdDetectionManager.getInstance() != null) {
+                AdDetectionManager.getInstance().enqueueAdDetection(context, media.getItem());
             }
         } else {
             adTimestampsPath = null;

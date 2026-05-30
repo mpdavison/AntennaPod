@@ -156,10 +156,8 @@ public class QueueFragment extends Fragment implements MaterialToolbar.OnMenuIte
             case REMOVED:
             case IRREVERSIBLE_REMOVED:
                 position = FeedItemEvent.indexOfItemWithId(queue, event.item.getId());
-                if (position >= 0) {
-                    queue.remove(position);
-                    recyclerAdapter.notifyItemRemoved(position);
-                }
+                queue.remove(position);
+                recyclerAdapter.notifyItemRemoved(position);
                 break;
             case CLEARED:
                 queue.clear();
@@ -167,10 +165,8 @@ public class QueueFragment extends Fragment implements MaterialToolbar.OnMenuIte
                 break;
             case MOVED:
                 position = FeedItemEvent.indexOfItemWithId(queue, event.item.getId());
-                if (position >= 0) {
-                    queue.add(event.position, queue.remove(position));
-                    recyclerAdapter.notifyItemMoved(position, event.position);
-                }
+                queue.add(event.position, queue.remove(position));
+                recyclerAdapter.notifyItemMoved(position, event.position);
                 break;
             default:
                 return;

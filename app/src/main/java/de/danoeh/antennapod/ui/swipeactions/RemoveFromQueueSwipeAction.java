@@ -4,6 +4,7 @@ import android.content.Context;
 import androidx.fragment.app.Fragment;
 import de.danoeh.antennapod.R;
 import de.danoeh.antennapod.event.MessageEvent;
+import de.danoeh.antennapod.storage.database.DBReader;
 import de.danoeh.antennapod.storage.database.DBWriter;
 import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedItemFilter;
@@ -33,11 +34,12 @@ public class RemoveFromQueueSwipeAction implements SwipeAction {
 
     @Override
     public void performAction(FeedItem item, Fragment fragment, FeedItemFilter filter) {
+        int position = DBReader.getQueueIDList().indexOf(item.getId());
         DBWriter.removeQueueItem(fragment.requireActivity(), true, item);
         if (willRemove(filter, item)) {
             EventBus.getDefault().post(new MessageEvent(
                     fragment.getResources().getQuantityString(R.plurals.removed_from_queue_message, 1, 1),
-                    context -> DBWriter.addQueueItem(fragment.requireActivity(), item),
+                    context -> DBWriter.addQueueItemAt(fragment.requireActivity(), item.getId(), position),
                     fragment.getString(R.string.undo)));
         }
     }
