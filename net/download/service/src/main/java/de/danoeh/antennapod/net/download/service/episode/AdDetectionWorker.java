@@ -23,6 +23,7 @@ import de.danoeh.antennapod.net.download.service.R;
 import de.danoeh.antennapod.ui.notifications.NotificationUtils;
 import de.danoeh.antennapod.net.download.serviceinterface.AdDetectionManager;
 import de.danoeh.antennapod.model.feed.FeedMedia;
+import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.storage.database.DBReader;
 import de.danoeh.antennapod.storage.preferences.AdDetectionPreferences;
 import okhttp3.MediaType;
@@ -31,6 +32,7 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
+import org.greenrobot.eventbus.EventBus;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -39,19 +41,24 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URLEncoder;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import de.danoeh.antennapod.event.FeedItemEvent;
 
 public class AdDetectionWorker extends Worker {
     private static final String TAG = "AdDetection";
     static final String KEY_FEED_MEDIA_ID = "feedMediaId";
+    static final String KEY_PROXY_POLL_MODE = "proxyPollMode";
     private static final long MAX_CHUNK_BYTES = 24L * 1024 * 1024;
     private static final long GAP_FILL_MS = 30_000L;
     private static final long MAX_CHUNK_DURATION_US = 5L * 60L * 1_000_000L;
+    private static final long MAX_POLL_DURATION_MS = 30 * 60 * 1000L;
+    private static final long POLL_INTERVAL_MS = 15_000L;
 
     private static final String DEFAULT_CLASSIFICATION_PROMPT =
             AdDetectionPreferences.DEFAULT_CLASSIFICATION_PROMPT;
@@ -88,6 +95,19 @@ public class AdDetectionWorker extends Worker {
         if (!AdDetectionPreferences.isEnabled()) {
             return;
         }
+        if (AdDetectionPreferences.isProxyEnabled()) {
+            Data inputData = new Data.Builder()
+                    .putLong(KEY_FEED_MEDIA_ID, feedMediaId)
+                    .putBoolean(KEY_PROXY_POLL_MODE, true)
+                    .build();
+            WorkManager.getInstance(context).enqueueUniqueWork(
+                    "adskip_proxy_" + feedMediaId,
+                    ExistingWorkPolicy.KEEP,
+                    new OneTimeWorkRequest.Builder(AdDetectionWorker.class)
+                            .setInputData(inputData)
+                            .build());
+            return;
+        }
         Data inputData = new Data.Builder()
                 .putLong(KEY_FEED_MEDIA_ID, feedMediaId)
                 .build();
@@ -120,6 +140,11 @@ public class AdDetectionWorker extends Worker {
     public Result doWork() {
         if (!AdDetectionPreferences.isEnabled()) {
             return Result.success();
+        }
+        if (getInputData().getBoolean(KEY_PROXY_POLL_MODE, false)) {
+            setForegroundAsync(new ForegroundInfo(R.id.notification_ad_detection, createNotification(),
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC));
+            return doProxyPollWork();
         }
         setForegroundAsync(new ForegroundInfo(R.id.notification_ad_detection, createNotification(),
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC));
@@ -222,6 +247,96 @@ public class AdDetectionWorker extends Worker {
             }
             if (isDownloaded && audioFile != null) {
                 audioFile.delete();
+            }
+        }
+        return Result.success();
+    }
+
+    private Result doProxyPollWork() {
+        long feedMediaId = getInputData().getLong(KEY_FEED_MEDIA_ID, -1);
+        if (feedMediaId < 0) {
+            return Result.success();
+        }
+        FeedMedia media = DBReader.getFeedMedia(feedMediaId);
+        if (media == null) {
+            return Result.success();
+        }
+        if (AdDetectionManager.isAdDetectionComplete(getApplicationContext(), media)) {
+            return Result.success();
+        }
+        String originalUrl = media.getDownloadUrl();
+        if (originalUrl == null || originalUrl.isEmpty()) {
+            return Result.success();
+        }
+        String proxyBase = AdDetectionPreferences.getProxyBaseUrl();
+        if (proxyBase.isEmpty()) {
+            return Result.success();
+        }
+        File outFile = AdDetectionManager.adTimestampsFileFor(getApplicationContext(), media);
+        OkHttpClient client = new OkHttpClient.Builder()
+                .connectTimeout(15, TimeUnit.SECONDS)
+                .readTimeout(15, TimeUnit.SECONDS)
+                .build();
+        try {
+            JSONObject body = new JSONObject();
+            body.put("url", originalUrl);
+            FeedItem item = DBReader.getFeedItem(media.getItemId());
+            if (item != null) {
+                body.put("episode_title", item.getTitle());
+                if (item.getFeed() != null) {
+                    body.put("podcast_name", item.getFeed().getTitle());
+                    body.put("podcast_url", item.getFeed().getDownloadUrl());
+                }
+            }
+            Request triggerRequest = new Request.Builder()
+                    .url(proxyBase + "/adskip/")
+                    .post(RequestBody.create(body.toString(), MediaType.get("application/json")))
+                    .build();
+            try (Response triggerResponse = client.newCall(triggerRequest).execute()) {
+                Log.d(TAG, "Triggered proxy processing: HTTP " + triggerResponse.code());
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to trigger proxy processing: " + e.getMessage());
+        }
+        long startedAt = System.currentTimeMillis();
+        while (System.currentTimeMillis() - startedAt < MAX_POLL_DURATION_MS && !isStopped()) {
+            try {
+                String pollUrl = proxyBase + "/timestamps?u="
+                        + URLEncoder.encode(originalUrl, "UTF-8");
+                Request request = new Request.Builder().url(pollUrl).build();
+                try (Response response = client.newCall(request).execute()) {
+                    if (response.isSuccessful() && response.body() != null) {
+                        String text = response.body().string();
+                        JSONObject root = new JSONObject(text);
+                        if ("ready".equals(root.optString("status"))) {
+                            JSONArray ads = root.optJSONArray("ads");
+                            if (ads == null) {
+                                ads = new JSONArray();
+                            }
+                            List<long[]> adList = new ArrayList<>();
+                            for (int i = 0; i < ads.length(); i++) {
+                                JSONObject ad = ads.getJSONObject(i);
+                                adList.add(new long[]{ad.getLong("startMs"), ad.getLong("endMs")});
+                            }
+                            writeAdTimestamps(outFile, adList);
+                            Log.i(TAG, "Proxy poll complete: " + adList.size()
+                                    + " ad segment(s) for media " + feedMediaId);
+                            FeedMedia refreshed = DBReader.getFeedMedia(feedMediaId);
+                            if (refreshed != null && refreshed.getItem() != null) {
+                                EventBus.getDefault().post(new FeedItemEvent(
+                                        Collections.singletonList(refreshed.getItem()), false));
+                            }
+                            return Result.success();
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                Log.d(TAG, "Proxy poll: " + e.getMessage());
+            }
+            try {
+                Thread.sleep(POLL_INTERVAL_MS);
+            } catch (InterruptedException e) {
+                break;
             }
         }
         return Result.success();
@@ -494,7 +609,6 @@ public class AdDetectionWorker extends Worker {
     }
 
     private List<long[]> parseAdSegments(String json) throws JSONException {
-        Log.d(TAG, "Chat response: " + json);
         JSONObject root = new JSONObject(json);
         String content = root.getJSONArray("choices")
                 .getJSONObject(0)

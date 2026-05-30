@@ -35,9 +35,11 @@ public class AdSkipControllerTest {
         seekCallback = mock(AdSkipController.SeekCallback.class);
         context = mock(Context.class);
         when(context.getString(anyInt())).thenReturn("");
+        when(context.getCacheDir()).thenReturn(tempFolder.getRoot());
 
         mediaFile = tempFolder.newFile("episode.mp3");
-        timestampsFile = new File(mediaFile.getAbsolutePath() + ".adtimestamps");
+        timestampsFile = new File(new File(tempFolder.getRoot(), "adtimestamps"), "1.adtimestamps");
+        timestampsFile.getParentFile().mkdirs();
 
         media = mock(FeedMedia.class);
         when(media.getId()).thenReturn(1L);

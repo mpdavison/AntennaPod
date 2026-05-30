@@ -8,6 +8,7 @@ import de.danoeh.antennapod.net.download.serviceinterface.AdDetectionManager;
 import de.danoeh.antennapod.event.MessageEvent;
 import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.playback.service.R;
+import de.danoeh.antennapod.storage.preferences.AdDetectionPreferences;
 import org.greenrobot.eventbus.EventBus;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -59,6 +60,7 @@ public class AdSkipController {
         skippedSegments.clear();
         suppressedSegments.clear();
         lastLoadAttemptMs = 0;
+        AdProxyTimestampPoller.stop();
     }
 
     public void onMediaLoaded(FeedMedia media) {
@@ -69,13 +71,18 @@ public class AdSkipController {
         processingComplete = false;
         currentMediaId = -1;
         furthestPositionMs = 0;
+        AdProxyTimestampPoller.stop();
         if (media != null && media.getDownloadUrl() != null) {
             currentMediaId = media.getId();
             File tsFile = AdDetectionManager.adTimestampsFileFor(context, media);
             adTimestampsPath = tsFile.getAbsolutePath();
             tryLoadAdSegments();
-            if (!processingComplete && media.getItem() != null) {
-                AdDetectionManager.getInstance().enqueueAdDetection(context, media.getItem());
+            if (!processingComplete) {
+                if (AdDetectionPreferences.isProxyEnabled()) {
+                    AdProxyTimestampPoller.start(context, media);
+                } else if (media.getItem() != null && AdDetectionManager.getInstance() != null) {
+                    AdDetectionManager.getInstance().enqueueAdDetection(context, media.getItem());
+                }
             }
         } else {
             adTimestampsPath = null;
@@ -162,7 +169,10 @@ public class AdSkipController {
             }
             JSONObject root = new JSONObject(sb.toString());
             processingComplete = "complete".equals(root.optString("status"));
-            JSONArray arr = root.getJSONArray("ads");
+            JSONArray arr = root.optJSONArray("ads");
+            if (arr == null) {
+                arr = new JSONArray();
+            }
             List<long[]> segs = new ArrayList<>();
             for (int i = 0; i < arr.length(); i++) {
                 JSONObject o = arr.getJSONObject(i);

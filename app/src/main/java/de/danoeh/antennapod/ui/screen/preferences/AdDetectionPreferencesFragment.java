@@ -6,6 +6,7 @@ import android.os.Bundle;
 import androidx.fragment.app.Fragment;
 import androidx.preference.ListPreference;
 import androidx.preference.Preference;
+import androidx.preference.PreferenceCategory;
 import androidx.preference.PreferenceManager;
 
 import java.util.List;
@@ -22,6 +23,10 @@ public class AdDetectionPreferencesFragment extends AnimatedPreferenceFragment
     private static final String KEY_CHAT_PICKER = "prefAdChatActiveProfile";
     private static final String KEY_TRANSCRIPTION_MANAGE = "prefAdTranscriptionManage";
     private static final String KEY_CHAT_MANAGE = "prefAdChatManage";
+    private static final String KEY_MODE = "prefAdDetectionMode";
+    private static final String KEY_PROXY_URL = "prefAdProxyBaseUrl";
+    private static final String KEY_TRANSCRIPTION_CATEGORY = "prefAdTranscriptionCategory";
+    private static final String KEY_CHAT_CATEGORY = "prefAdChatCategory";
 
     @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
@@ -33,6 +38,12 @@ public class AdDetectionPreferencesFragment extends AnimatedPreferenceFragment
         });
         findPreference(KEY_CHAT_MANAGE).setOnPreferenceClickListener(p -> {
             openManager(AdDetectionPreferences.ROLE_CHAT);
+            return true;
+        });
+
+        ListPreference modePicker = findPreference(KEY_MODE);
+        modePicker.setOnPreferenceChangeListener((p, value) -> {
+            applyModeVisibility((String) value);
             return true;
         });
 
@@ -76,6 +87,33 @@ public class AdDetectionPreferencesFragment extends AnimatedPreferenceFragment
     private void refresh() {
         populatePicker(findPreference(KEY_TRANSCRIPTION_PICKER), AdDetectionPreferences.ROLE_TRANSCRIPTION);
         populatePicker(findPreference(KEY_CHAT_PICKER), AdDetectionPreferences.ROLE_CHAT);
+        ListPreference modePicker = findPreference(KEY_MODE);
+        String mode = AdDetectionPreferences.getMode();
+        modePicker.setValue(mode);
+        applyModeVisibility(mode);
+    }
+
+    private void applyModeVisibility(String mode) {
+        boolean proxy = AdDetectionPreferences.MODE_PROXY.equals(mode);
+        Preference proxyUrl = findPreference(KEY_PROXY_URL);
+        PreferenceCategory transcription = findPreference(KEY_TRANSCRIPTION_CATEGORY);
+        PreferenceCategory chat = findPreference(KEY_CHAT_CATEGORY);
+        if (proxyUrl != null) {
+            proxyUrl.setVisible(proxy);
+        }
+        if (transcription != null) {
+            transcription.setVisible(!proxy);
+        }
+        if (chat != null) {
+            chat.setVisible(!proxy);
+        }
+        ListPreference modePicker = findPreference(KEY_MODE);
+        if (modePicker != null) {
+            int idx = modePicker.findIndexOfValue(mode);
+            if (idx >= 0 && modePicker.getEntries() != null) {
+                modePicker.setSummary(modePicker.getEntries()[idx]);
+            }
+        }
     }
 
     private void populatePicker(ListPreference picker, int role) {

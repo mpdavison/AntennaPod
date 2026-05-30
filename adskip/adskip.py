@@ -1,5 +1,5 @@
-from fastapi import FastAPI
-from fastapi.responses import JSONResponse, HTMLResponse, FileResponse
+from fastapi import FastAPI, Header, Request
+from fastapi.responses import JSONResponse, HTMLResponse, FileResponse, StreamingResponse
 import asyncio
 import hashlib
 import html as html_module
@@ -33,8 +33,10 @@ openwebui_api_key = os.getenv("OPENWEBUI_API_KEY", "")
 groq_api_key = os.getenv("GROQ_API_KEY", "")
 transcription_provider = os.getenv("TRANSCRIPTION_PROVIDER", "openai").lower()
 transcription_model = os.getenv("TRANSCRIPTION_MODEL", "whisper-1")
+transcription_provider_url = os.getenv("TRANSCRIPTION_PROVIDER_URL", "")
+transcription_api_key = os.getenv("TRANSCRIPTION_API_KEY", "")
 chat_provider = os.getenv("CHAT_PROVIDER", "openai").lower()
-chat_model = os.getenv("CHAT_MODEL", "gpt-5.4")
+chat_model = os.getenv("CHAT_MODEL", "gpt-4o-mini")
 
 GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 
@@ -45,6 +47,9 @@ def _make_client(provider, audio=False):
                            base_url=openwebui_audio_url if audio else openwebui_base_url)
     if provider == "groq":
         return AsyncOpenAI(api_key=groq_api_key, base_url=GROQ_BASE_URL)
+    if provider == "whisper-api" and audio:
+        return AsyncOpenAI(api_key=transcription_api_key or "x",
+                           base_url=transcription_provider_url or None)
     return AsyncOpenAI(api_key=openai_api_key)
 
 con = None
@@ -93,12 +98,13 @@ def init_db(conn):
 
 def get_podcast(conn, url):
     row = conn.execute(
-        "SELECT status, ads FROM podcasts WHERE url = ?", [url]
+        "SELECT status, ads, episode_title, podcast_name FROM podcasts WHERE url = ?", [url]
     ).fetchone()
     if row is None:
         return None
-    status, ads_json = row
-    return {"status": status, "ads": json.loads(ads_json) if ads_json else []}
+    status, ads_json, episode_title, podcast_name = row
+    return {"status": status, "ads": json.loads(ads_json) if ads_json else [],
+            "episode_title": episode_title, "podcast_name": podcast_name}
 
 
 def increment_request_count(conn, url):
@@ -279,6 +285,7 @@ async def _run_pipeline(url, audio_path, transcript_path, from_step):
     try:
         if from_step == "download":
             await download_audio(url, audio_path)
+            upsert_podcast(con, url, "pending", audio_path=audio_path)
 
         if from_step in ("download", "transcription"):
             tmp_dir = tempfile.mkdtemp()
@@ -293,6 +300,7 @@ async def _run_pipeline(url, audio_path, transcript_path, from_step):
             finally:
                 await asyncio.to_thread(shutil.rmtree, tmp_dir, True)
             await asyncio.to_thread(lambda: open(transcript_path, "w").write(json.dumps(all_segments)))
+            upsert_podcast(con, url, "pending", audio_path=audio_path, transcript_path=transcript_path)
         else:
             all_segments = json.loads(await asyncio.to_thread(lambda: open(transcript_path).read()))
 
@@ -320,6 +328,112 @@ async def detect_ads(url):
     audio_path = os.path.join(PODCASTS_DIR, f"{url_hash}.mp3")
     transcript_path = os.path.join(PODCASTS_DIR, f"{url_hash}.transcript.json")
     await _run_pipeline(url, audio_path, transcript_path, "download")
+
+
+def _paths_for(url):
+    os.makedirs(PODCASTS_DIR, exist_ok=True)
+    url_hash = hashlib.md5(url.encode()).hexdigest()
+    audio_path = os.path.join(PODCASTS_DIR, f"{url_hash}.mp3")
+    transcript_path = os.path.join(PODCASTS_DIR, f"{url_hash}.transcript.json")
+    return audio_path, transcript_path
+
+
+_inflight_downloads = {}
+
+
+async def _tee_stream(url, audio_path, transcript_path):
+    part_path = audio_path + ".part"
+    upsert_podcast(con, url, "pending")
+    headers = dict(ANTENNAPOD_HEADERS)
+    if url.startswith("http:"):
+        headers["Upgrade-Insecure-Requests"] = "1"
+    client = httpx.AsyncClient(follow_redirects=True, timeout=300, headers=headers)
+    response_cm = client.stream("GET", url)
+    response = await response_cm.__aenter__()
+    try:
+        response.raise_for_status()
+        out_headers = {}
+        for h in ("content-type", "content-length", "accept-ranges"):
+            v = response.headers.get(h)
+            if v is not None:
+                out_headers[h] = v
+        out_headers.setdefault("content-type", "audio/mpeg")
+
+        async def body():
+            f = open(part_path, "wb")
+            ok = False
+            try:
+                async for chunk in response.aiter_bytes(65536):
+                    f.write(chunk)
+                    yield chunk
+                ok = True
+            finally:
+                f.close()
+                try:
+                    await response_cm.__aexit__(None, None, None)
+                finally:
+                    await client.aclose()
+                if ok and os.path.exists(part_path):
+                    try:
+                        os.replace(part_path, audio_path)
+                        logger.info(f"Cached audio for {url} -> {audio_path}")
+                        upsert_podcast(con, url, "pending", audio_path=audio_path)
+                        start_pipeline(url, _run_pipeline(url, audio_path, transcript_path, "transcription"))
+                    except OSError as e:
+                        logger.warning(f"Failed to finalize cache for {url}: {e}")
+                else:
+                    if os.path.exists(part_path):
+                        try:
+                            os.remove(part_path)
+                        except OSError:
+                            pass
+                _inflight_downloads.pop(url, None)
+
+        return body(), out_headers
+    except BaseException:
+        try:
+            await response_cm.__aexit__(None, None, None)
+        finally:
+            await client.aclose()
+        _inflight_downloads.pop(url, None)
+        raise
+
+
+async def _proxy_passthrough(url, range_header):
+    headers = dict(ANTENNAPOD_HEADERS)
+    if url.startswith("http:"):
+        headers["Upgrade-Insecure-Requests"] = "1"
+    if range_header:
+        headers["Range"] = range_header
+    client = httpx.AsyncClient(follow_redirects=True, timeout=300, headers=headers)
+    response_cm = client.stream("GET", url)
+    response = await response_cm.__aenter__()
+    try:
+        out_headers = {}
+        for h in ("content-type", "content-length", "accept-ranges", "content-range"):
+            v = response.headers.get(h)
+            if v is not None:
+                out_headers[h] = v
+        out_headers.setdefault("content-type", "audio/mpeg")
+        status = response.status_code
+
+        async def body():
+            try:
+                async for chunk in response.aiter_bytes(65536):
+                    yield chunk
+            finally:
+                try:
+                    await response_cm.__aexit__(None, None, None)
+                finally:
+                    await client.aclose()
+
+        return body(), out_headers, status
+    except BaseException:
+        try:
+            await response_cm.__aexit__(None, None, None)
+        finally:
+            await client.aclose()
+        raise
 
 
 @asynccontextmanager
@@ -460,3 +574,67 @@ async def index():
 </body>
 </html>"""
     return HTMLResponse(content=html)
+
+
+@app.get("/adskip/")
+async def adskip_stream(url: str, request: Request, range: str = Header(default=None),
+                        t: str = None, pn: str = None):
+    if not url or not (url.startswith("http://") or url.startswith("https://")):
+        return JSONResponse(status_code=400, content={"error": "missing or invalid 'url'"})
+    audio_path, transcript_path = _paths_for(url)
+
+    record = get_podcast(con, url)
+    if t or pn:
+        if record is None:
+            upsert_podcast(con, url, "pending", episode_title=t, podcast_name=pn)
+            record = get_podcast(con, url)
+        elif (t and not record.get("episode_title")) or (pn and not record.get("podcast_name")):
+            upsert_podcast(con, url, record["status"], episode_title=t, podcast_name=pn)
+            record = get_podcast(con, url)
+    episode_label = (record.get("episode_title") or record.get("podcast_name") if record else None) or url
+
+    if os.path.isfile(audio_path):
+        if record is None:
+            upsert_podcast(con, url, "pending")
+            start_pipeline(url, _run_pipeline(url, audio_path, transcript_path, "transcription"))
+            logger.info(f"[{episode_label}] Serving cached audio, pipeline started")
+        else:
+            increment_request_count(con, url)
+            logger.info(f"[{episode_label}] Serving cached audio (status={record['status']})")
+        return FileResponse(audio_path, media_type="audio/mpeg")
+
+    if range and range.strip() and range.strip() != "bytes=0-":
+        logger.info(f"[{episode_label}] Passthrough (range request): {range}")
+        body, headers, status = await _proxy_passthrough(url, range)
+        return StreamingResponse(body, status_code=status, headers=headers,
+                                 media_type=headers.get("content-type", "audio/mpeg"))
+
+    if url in _inflight_downloads:
+        logger.info(f"[{episode_label}] Passthrough (download in-flight)")
+        body, headers, status = await _proxy_passthrough(url, range)
+        return StreamingResponse(body, status_code=status, headers=headers,
+                                 media_type=headers.get("content-type", "audio/mpeg"))
+
+    logger.info(f"[{episode_label}] Starting tee-stream download")
+    _inflight_downloads[url] = True
+    try:
+        body, headers = await _tee_stream(url, audio_path, transcript_path)
+    except Exception as e:
+        _inflight_downloads.pop(url, None)
+        logger.error(f"[{episode_label}] Failed to start tee stream: {e}")
+        return JSONResponse(status_code=502, content={"error": str(e)})
+    return StreamingResponse(body, headers=headers,
+                             media_type=headers.get("content-type", "audio/mpeg"))
+
+
+@app.get("/timestamps")
+async def timestamps(u: str):
+    if not u:
+        return JSONResponse(status_code=400, content={"error": "missing 'u'"})
+    record = get_podcast(con, u)
+    if record is None:
+        return JSONResponse(content={"status": "pending", "ads": []})
+    if record["status"] == "complete":
+        return JSONResponse(content={"status": "ready", "ads": record["ads"]})
+    return JSONResponse(content={"status": "pending", "ads": []})
+

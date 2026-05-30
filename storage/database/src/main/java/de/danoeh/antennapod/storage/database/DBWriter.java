@@ -358,7 +358,9 @@ public class DBWriter {
                     item.addTag(FeedItem.TAG_QUEUE);
                     EventBus.getDefault().post(QueueEvent.added(item, index));
                     EventBus.getDefault().post(new FeedItemEvent(Collections.singletonList(item), false));
-                    AdDetectionManager.getInstance().enqueueAdDetection(context, item);
+                    if (AdDetectionManager.getInstance() != null) {
+                        AdDetectionManager.getInstance().enqueueAdDetection(context, item);
+                    }
                     if (item.isNew()) {
                         DBWriter.markItemsPlayed(FeedItem.UNPLAYED, false, Collections.singletonList(item));
                     }
@@ -366,7 +368,9 @@ public class DBWriter {
             }
 
             adapter.close();
-            AutoDownloadManager.getInstance().autodownloadUndownloadedItems(context);
+            if (AutoDownloadManager.getInstance() != null) {
+                AutoDownloadManager.getInstance().autodownloadUndownloadedItems(context);
+            }
         });
     }
 
@@ -404,7 +408,9 @@ public class DBWriter {
                 events.add(QueueEvent.added(item, insertPosition));
 
                 item.addTag(FeedItem.TAG_QUEUE);
-                AdDetectionManager.getInstance().enqueueAdDetection(context, item);
+                if (AdDetectionManager.getInstance() != null) {
+                    AdDetectionManager.getInstance().enqueueAdDetection(context, item);
+                }
                 updatedItems.add(item);
                 if (item.isNew()) {
                     markAsUnplayed.add(item);
@@ -421,7 +427,9 @@ public class DBWriter {
                 DBWriter.markItemsPlayed(FeedItem.UNPLAYED, false, markAsUnplayed);
             }
             adapter.close();
-            AutoDownloadManager.getInstance().autodownloadUndownloadedItems(context);
+            if (AutoDownloadManager.getInstance() != null) {
+                AutoDownloadManager.getInstance().autodownloadUndownloadedItems(context);
+            }
         });
     }
 
@@ -523,7 +531,7 @@ public class DBWriter {
             Log.w(TAG, "Queue was not modified by call to removeQueueItem");
         }
         adapter.close();
-        if (performAutoDownload) {
+        if (performAutoDownload && AutoDownloadManager.getInstance() != null) {
             AutoDownloadManager.getInstance().autodownloadUndownloadedItems(context);
         }
     }

@@ -17,6 +17,7 @@ import de.danoeh.antennapod.model.feed.Feed;
 import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.model.playback.Playable;
+import de.danoeh.antennapod.storage.preferences.AdDetectionPreferences;
 import de.danoeh.antennapod.system.utils.ThreadUtils;
 
 import java.io.ByteArrayOutputStream;
@@ -76,7 +77,10 @@ public class MediaItemAdapter {
         Bundle extras = new Bundle();
         extras.putString(KEY_STREAM_URL, playable.getStreamUrl());
         metadataBuilder.setExtras(extras);
-        String localPlaybackUri = playable.localFileAvailable() ? playable.getLocalFileUrl() : playable.getStreamUrl();
+        String localPlaybackUri = playable.localFileAvailable()
+                ? playable.getLocalFileUrl()
+                : AdDetectionPreferences.rewriteForProxy(
+                        playable.getStreamUrl(), playable.getEpisodeTitle(), playable.getFeedTitle());
         return new MediaItem.Builder()
                 .setUri(localPlaybackUri != null ? Uri.parse(localPlaybackUri) : null)
                 .setMediaId(mediaId)

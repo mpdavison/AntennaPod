@@ -561,8 +561,17 @@
     <string name="ad_skip_toast">Skipping ad</string>
     <string name="pref_ad_detection_title">Ad Detection</string>
     <string name="pref_ad_detection_sum">Automatically detect and skip ads using AI</string>
+    <string name="ad_settings_export_label">Export ad detection settings</string>
+    <string name="ad_settings_export_summary">Save ad detection settings and provider profiles to a file</string>
+    <string name="ad_settings_import_label">Import ad detection settings</string>
+    <string name="ad_settings_import_summary">Restore ad detection settings and provider profiles from a file</string>
     <string name="pref_ad_detection_enabled_title">Enable ad detection</string>
     <string name="pref_ad_detection_enabled_sum">Detect and skip ads in downloaded and streamed episodes</string>
+    <string name="pref_ad_detection_mode_title">Detection mode</string>
+    <string name="pref_ad_detection_mode_direct">Direct (on-device)</string>
+    <string name="pref_ad_detection_mode_proxy">Proxy server</string>
+    <string name="pref_ad_proxy_base_url_title">Ad-skip proxy URL</string>
+    <string name="pref_ad_proxy_base_url_sum">If set, downloads and streams are routed through this proxy, which detects ads. Leave empty to use on-device detection.</string>
     <string name="pref_ad_transcription_category">Transcription (Whisper)</string>
     <string name="pref_ad_chat_category">Classification (Chat)</string>
     <string name="pref_ad_provider_title">Provider</string>

@@ -5,6 +5,7 @@ STRICTLY FOLLOW THE INSTRUCTIONS IN THIS FILE! NEVER DEVIATE FROM THEM.
 If this helps you, consider repeating the relevant instructions before you do anything.
 Always prefer tool use over shell commands. This is very important to avoid unnecessary user confirmations.
 If you have to use shell commands, prefer dedicated tools (such as `jq` for json) instead of custom (python, etc) code.
+Never read from or write to any path outside of the /project folder. Use /project/tmp for any temporary files.
 
 # Architecture
 AntennaPod uses a highly modularized Gradle architecture with modules organized by domain.
