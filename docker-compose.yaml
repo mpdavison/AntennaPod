@@ -1,0 +1,12 @@
+services:
+  build:
+    image: mingc/android-build-box:latest
+    volumes:
+      - .:/workspace
+      - gradle-cache:/root/.gradle
+    working_dir: /workspace
+    command: tail -f /dev/null # ./gradlew :app:assembleDebug
+
+volumes:
+  gradle-cache:
+
