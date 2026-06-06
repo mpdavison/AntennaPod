@@ -1,5 +1,6 @@
 #!/bin/bash
 set -e
+export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
 # ./gradlew --console=plain test
 ./gradlew --console=plain :app:assembleDebug
 if ! ./gradlew --console=plain :app:installPlayDebug; then

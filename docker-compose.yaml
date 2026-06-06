@@ -1,10 +1,16 @@
 services:
   build:
-    image: mingc/android-build-box:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.aider
     volumes:
       - .:/workspace
       - gradle-cache:/root/.gradle
     working_dir: /workspace
+    env_file:
+      - .env
+    environment:
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
     command: tail -f /dev/null # ./gradlew :app:assembleDebug
 
 volumes:
