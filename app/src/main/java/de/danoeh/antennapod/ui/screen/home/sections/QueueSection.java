@@ -15,6 +15,7 @@ import de.danoeh.antennapod.activity.MainActivity;
 import de.danoeh.antennapod.ui.episodeslist.HorizontalItemListAdapter;
 import de.danoeh.antennapod.ui.MenuItemUtils;
 import de.danoeh.antennapod.storage.database.DBReader;
+import de.danoeh.antennapod.event.AdDetectionProgressEvent;
 import de.danoeh.antennapod.event.EpisodeDownloadEvent;
 import de.danoeh.antennapod.event.FeedItemEvent;
 import de.danoeh.antennapod.event.PlayerStatusEvent;
@@ -105,6 +106,16 @@ public class QueueSection extends HomeSection {
     public void onEventMainThread(EpisodeDownloadEvent event) {
         for (String downloadUrl : event.getUrls()) {
             int pos = EpisodeDownloadEvent.indexOfItemWithDownloadUrl(queue, downloadUrl);
+            if (pos >= 0) {
+                listAdapter.notifyItemChangedCompat(pos);
+            }
+        }
+    }
+
+    @Subscribe(sticky = true, threadMode = ThreadMode.MAIN)
+    public void onAdDetectionProgress(AdDetectionProgressEvent event) {
+        for (long mediaId : event.getMediaIds()) {
+            int pos = AdDetectionProgressEvent.indexOfItemWithMediaId(queue, mediaId);
             if (pos >= 0) {
                 listAdapter.notifyItemChangedCompat(pos);
             }

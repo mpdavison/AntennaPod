@@ -19,7 +19,9 @@ import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import de.danoeh.antennapod.event.AdDetectionProgressEvent;
 import de.danoeh.antennapod.net.download.service.R;
+import org.greenrobot.eventbus.EventBus;
 import de.danoeh.antennapod.ui.notifications.NotificationUtils;
 import de.danoeh.antennapod.net.download.serviceinterface.AdDetectionManager;
 import de.danoeh.antennapod.model.feed.FeedMedia;
@@ -95,6 +97,8 @@ public class AdDetectionWorker extends Worker {
                 "adskip_" + feedMediaId,
                 ExistingWorkPolicy.KEEP,
                 new OneTimeWorkRequest.Builder(AdDetectionWorker.class)
+                        .addTag("ad_detection")
+                        .addTag("ad_media_" + feedMediaId)
                         .setInputData(inputData)
                         .build());
     }
@@ -113,6 +117,15 @@ public class AdDetectionWorker extends Worker {
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
                 .build();
+    }
+
+    private void reportProgress(long feedMediaId, int completed, int total) {
+        int pct = Math.round(100f * completed / total);
+        setProgressAsync(new Data.Builder()
+                .putInt("progress", pct)
+                .build());
+        AdDetectionManager.setProgress(feedMediaId, pct);
+        EventBus.getDefault().post(new AdDetectionProgressEvent(Collections.singleton(feedMediaId)));
     }
 
     @NonNull
@@ -178,6 +191,10 @@ public class AdDetectionWorker extends Worker {
             chunks = splitAudio(audioFile);
             Log.i(TAG, "Audio split into " + chunks.size() + " chunk(s)");
 
+            int totalSteps = chunks.size() + 1;
+            int completedSteps = 0;
+            reportProgress(feedMediaId, 1, totalSteps);
+
             List<Segment> allSegments = new ArrayList<>();
             String transcriptionBaseUrl = AdDetectionPreferences.getTranscriptionBaseUrl();
             String transcriptionModel = AdDetectionPreferences.getTranscriptionModel();
@@ -189,6 +206,8 @@ public class AdDetectionWorker extends Worker {
                             transcriptionApiKey, transcriptionBaseUrl, transcriptionModel);
                     allSegments.addAll(segs);
                     transcriptionSuccesses++;
+                    completedSteps++;
+                    reportProgress(feedMediaId, completedSteps, totalSteps);
                 } catch (Exception e) {
                     Log.w(TAG, "Transcription of chunk " + i + " failed: " + e.getMessage());
                 }
@@ -196,6 +215,7 @@ public class AdDetectionWorker extends Worker {
 
             if (transcriptionSuccesses == 0 && !chunks.isEmpty()) {
                 Log.w(TAG, "All transcription chunks failed, will retry later");
+                AdDetectionManager.setProgress(feedMediaId, -1);
                 return Result.success();
             }
 
@@ -206,6 +226,7 @@ public class AdDetectionWorker extends Worker {
             List<long[]> ads = classifyAds(allSegments, client,
                     chatApiKey, chatBaseUrl, chatModel, chatPrompt);
             ads = mergeConsecutiveAds(ads);
+            reportProgress(feedMediaId, totalSteps, totalSteps);
 
             File outFile = AdDetectionManager.adTimestampsFileFor(getApplicationContext(), media);
             writeAdTimestamps(outFile, ads);

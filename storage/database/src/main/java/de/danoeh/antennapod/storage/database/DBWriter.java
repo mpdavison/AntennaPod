@@ -15,7 +15,6 @@ import com.google.common.util.concurrent.Futures;
 import de.danoeh.antennapod.event.DownloadLogEvent;
 
 import de.danoeh.antennapod.model.feed.FeedItemFilter;
-import de.danoeh.antennapod.net.download.serviceinterface.AdDetectionManager;
 import de.danoeh.antennapod.net.download.serviceinterface.AutoDownloadManager;
 import de.danoeh.antennapod.net.download.serviceinterface.DownloadServiceInterface;
 import de.danoeh.antennapod.net.download.serviceinterface.FeedUpdateManager;
@@ -358,9 +357,6 @@ public class DBWriter {
                     item.addTag(FeedItem.TAG_QUEUE);
                     EventBus.getDefault().post(QueueEvent.added(item, index));
                     EventBus.getDefault().post(new FeedItemEvent(Collections.singletonList(item), false));
-                    if (AdDetectionManager.getInstance() != null) {
-                        AdDetectionManager.getInstance().enqueueAdDetection(context, item);
-                    }
                     if (item.isNew()) {
                         DBWriter.markItemsPlayed(FeedItem.UNPLAYED, false, Collections.singletonList(item));
                     }
@@ -408,9 +404,6 @@ public class DBWriter {
                 events.add(QueueEvent.added(item, insertPosition));
 
                 item.addTag(FeedItem.TAG_QUEUE);
-                if (AdDetectionManager.getInstance() != null) {
-                    AdDetectionManager.getInstance().enqueueAdDetection(context, item);
-                }
                 updatedItems.add(item);
                 if (item.isNew()) {
                     markAsUnplayed.add(item);

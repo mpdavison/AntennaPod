@@ -156,13 +156,23 @@ public class EpisodeItemViewHolder extends RecyclerView.ViewHolder {
 
         if (DownloadServiceInterface.get().isDownloadingEpisode(media.getDownloadUrl())) {
             float percent = 0.01f * DownloadServiceInterface.get().getProgress(media.getDownloadUrl());
+            secondaryActionProgress.resetColor();
             secondaryActionProgress.setPercentage(Math.max(percent, 0.01f), item);
             secondaryActionProgress.setIndeterminate(
                     DownloadServiceInterface.get().isEpisodeQueued(media.getDownloadUrl()));
         } else if (media.isDownloaded()) {
-            secondaryActionProgress.setPercentage(1, item); // Do not animate 100% -> 0%
-            secondaryActionProgress.setIndeterminate(false);
+            int adProgress = AdDetectionManager.getProgress(media.getId());
+            if (adProgress > 0 && adProgress < 100) {
+                secondaryActionProgress.setColor(activity.getColor(R.color.ad_detection_complete));
+                secondaryActionProgress.setPercentage(adProgress / 100f, item);
+                secondaryActionProgress.setIndeterminate(false);
+            } else {
+                secondaryActionProgress.resetColor();
+                secondaryActionProgress.setPercentage(1, item); // Do not animate 100% -> 0%
+                secondaryActionProgress.setIndeterminate(false);
+            }
         } else {
+            secondaryActionProgress.resetColor();
             secondaryActionProgress.setPercentage(0, item); // Animate X% -> 0%
             secondaryActionProgress.setIndeterminate(false);
         }

@@ -39,12 +39,14 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.snackbar.Snackbar;
 import de.danoeh.antennapod.R;
+import de.danoeh.antennapod.event.AdDetectionProgressEvent;
 import de.danoeh.antennapod.event.EpisodeDownloadEvent;
 import de.danoeh.antennapod.event.FeedUpdateRunningEvent;
 import de.danoeh.antennapod.event.MessageEvent;
 import de.danoeh.antennapod.event.StreamingConfirmationEvent;
 import de.danoeh.antennapod.model.download.DownloadStatus;
 import de.danoeh.antennapod.net.download.service.feed.FeedUpdateManagerImpl;
+import de.danoeh.antennapod.net.download.serviceinterface.AdDetectionManager;
 import de.danoeh.antennapod.net.download.serviceinterface.DownloadServiceInterface;
 import de.danoeh.antennapod.net.download.serviceinterface.FeedUpdateManager;
 import de.danoeh.antennapod.net.common.NetworkUtils;
@@ -91,6 +93,8 @@ import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.Map;
 import java.util.Objects;
 
@@ -271,6 +275,33 @@ public class MainActivity extends CastEnabledActivity implements NavigationToolb
                     }
                     DownloadServiceInterface.get().setCurrentDownloads(updatedEpisodes);
                     EventBus.getDefault().postSticky(new EpisodeDownloadEvent(updatedEpisodes));
+                });
+        WorkManager.getInstance(this)
+                .getWorkInfosByTagLiveData("ad_detection")
+                .observe(this, workInfos -> {
+                    Set<Long> adMediaIds = new HashSet<>();
+                    for (WorkInfo workInfo : workInfos) {
+                        long mediaId = -1;
+                        for (String tag : workInfo.getTags()) {
+                            if (tag.startsWith("ad_media_")) {
+                                mediaId = Long.parseLong(tag.substring("ad_media_".length()));
+                            }
+                        }
+                        if (mediaId < 0) {
+                            continue;
+                        }
+                        int progress = workInfo.getProgress().getInt("progress", -1);
+                        if (workInfo.getState() == WorkInfo.State.RUNNING && progress >= 0) {
+                            AdDetectionManager.setProgress(mediaId, progress);
+                            adMediaIds.add(mediaId);
+                        } else if (workInfo.getState() == WorkInfo.State.SUCCEEDED
+                                || workInfo.getState() == WorkInfo.State.FAILED) {
+                            AdDetectionManager.setProgress(mediaId, -1);
+                        }
+                    }
+                    if (!adMediaIds.isEmpty()) {
+                        EventBus.getDefault().postSticky(new AdDetectionProgressEvent(adMediaIds));
+                    }
                 });
     }
 

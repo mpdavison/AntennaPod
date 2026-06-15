@@ -74,9 +74,6 @@ public class AdSkipController {
             File tsFile = AdDetectionManager.adTimestampsFileFor(context, media);
             adTimestampsPath = tsFile.getAbsolutePath();
             tryLoadAdSegments();
-            if (!processingComplete && media.getItem() != null && AdDetectionManager.getInstance() != null) {
-                AdDetectionManager.getInstance().enqueueAdDetection(context, media.getItem());
-            }
         } else {
             adTimestampsPath = null;
         }
@@ -149,6 +146,7 @@ public class AdSkipController {
         }
         File file = new File(adTimestampsPath);
         if (!file.exists()) {
+            adSegments = null;
             return;
         }
         try {

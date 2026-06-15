@@ -19,6 +19,7 @@ public class CircularProgressBar extends View {
 
     private final Paint paintBackground = new Paint();
     private final Paint paintProgress = new Paint();
+    private int defaultColor;
     private float percentage = 0;
     private float targetPercentage = 0;
     private boolean isIndeterminate = false;
@@ -53,6 +54,7 @@ public class CircularProgressBar extends View {
         typedArray.recycle();
         paintProgress.setColor(color);
         paintBackground.setColor(color);
+        defaultColor = color;
     }
 
     /**
@@ -100,5 +102,17 @@ public class CircularProgressBar extends View {
 
     public void setIndeterminate(boolean indeterminate) {
         isIndeterminate = indeterminate;
+    }
+
+    public void setColor(int color) {
+        paintProgress.setColor(color);
+        paintBackground.setColor(color);
+        invalidate();
+    }
+
+    public void resetColor() {
+        paintProgress.setColor(defaultColor);
+        paintBackground.setColor(defaultColor);
+        invalidate();
     }
 }

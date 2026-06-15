@@ -37,6 +37,7 @@ import de.danoeh.antennapod.actionbutton.StreamActionButton;
 import de.danoeh.antennapod.actionbutton.VisitWebsiteActionButton;
 import de.danoeh.antennapod.activity.MainActivity;
 import de.danoeh.antennapod.databinding.FeeditemFragmentBinding;
+import de.danoeh.antennapod.event.AdDetectionProgressEvent;
 import de.danoeh.antennapod.event.EpisodeDownloadEvent;
 import de.danoeh.antennapod.event.FeedItemEvent;
 import de.danoeh.antennapod.event.MessageEvent;
@@ -44,6 +45,7 @@ import de.danoeh.antennapod.event.PlayerStatusEvent;
 import de.danoeh.antennapod.model.feed.Feed;
 import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
+import de.danoeh.antennapod.net.download.serviceinterface.AdDetectionManager;
 import de.danoeh.antennapod.net.download.serviceinterface.DownloadServiceInterface;
 import de.danoeh.antennapod.playback.service.PlaybackController;
 import de.danoeh.antennapod.playback.service.PlaybackService;
@@ -285,6 +287,33 @@ public class ItemFragment extends Fragment {
                 .apply(options)
                 .into(viewBinding.imgvCover);
         updateButtons();
+        updateAdSummary();
+    }
+
+    private void updateAdSummary() {
+        if (item == null || !item.hasMedia()) {
+            viewBinding.adSummaryText.setVisibility(View.GONE);
+            return;
+        }
+        int progress = AdDetectionManager.getProgress(item.getMedia().getId());
+        if (progress > 0 && progress < 100) {
+            viewBinding.adSummaryText.setText(R.string.ad_detection_summary_processing);
+            viewBinding.adSummaryText.setVisibility(View.VISIBLE);
+            return;
+        }
+        long[] summary = AdDetectionManager.getAdSummary(getContext(), item.getMedia());
+        if (summary == null) {
+            viewBinding.adSummaryText.setVisibility(View.GONE);
+            return;
+        }
+        if (summary[0] == 0) {
+            viewBinding.adSummaryText.setText(R.string.ad_detection_summary_none);
+        } else {
+            String totalStr = Converter.getDurationStringLong((int) summary[1]);
+            viewBinding.adSummaryText.setText(
+                    getString(R.string.ad_detection_summary_ads, (int) summary[0], totalStr));
+        }
+        viewBinding.adSummaryText.setVisibility(View.VISIBLE);
     }
 
     private void updateButtons() {
@@ -387,6 +416,20 @@ public class ItemFragment extends Fragment {
         }
         if (itemsLoaded && getActivity() != null) {
             updateButtons();
+            updateAdSummary();
+        }
+    }
+
+    @Subscribe(sticky = true, threadMode = ThreadMode.MAIN)
+    public void onAdDetectionProgress(AdDetectionProgressEvent event) {
+        if (item == null || item.getMedia() == null) {
+            return;
+        }
+        if (event.getMediaIds().contains(item.getMedia().getId())) {
+            if (itemsLoaded && getActivity() != null) {
+                updateButtons();
+                updateAdSummary();
+            }
         }
     }
 
