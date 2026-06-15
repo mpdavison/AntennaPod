@@ -1,15 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <string-array name="pref_ad_detection_mode_entries">
-        <item>@string/pref_ad_detection_mode_direct</item>
-        <item>@string/pref_ad_detection_mode_proxy</item>
-    </string-array>
-    <string-array name="pref_ad_detection_mode_values" translatable="false">
-        <item>direct</item>
-        <item>proxy</item>
-    </string-array>
-
     <string-array name="spnAutoDeleteItems">
         <item>@string/global_default</item>
         <item>@string/feed_auto_download_always</item>

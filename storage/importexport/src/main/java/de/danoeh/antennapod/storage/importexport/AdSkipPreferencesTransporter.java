@@ -25,12 +25,10 @@ public class AdSkipPreferencesTransporter {
     private static final String TAG = "AdSkipPrefsTransporter";
 
     private static final String[] STRING_KEYS = {
-            AdDetectionPreferences.PREF_AD_DETECTION_MODE,
             AdDetectionPreferences.PREF_AD_TRANSCRIPTION_PROFILES,
             AdDetectionPreferences.PREF_AD_TRANSCRIPTION_ACTIVE_ID,
             AdDetectionPreferences.PREF_AD_CHAT_PROFILES,
-            AdDetectionPreferences.PREF_AD_CHAT_ACTIVE_ID,
-            AdDetectionPreferences.PREF_AD_PROXY_BASE_URL
+            AdDetectionPreferences.PREF_AD_CHAT_ACTIVE_ID
     };
 
     private static final String[] BOOLEAN_KEYS = {

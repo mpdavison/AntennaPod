@@ -11,7 +11,6 @@ import de.danoeh.antennapod.model.download.DownloadRequest;
 import de.danoeh.antennapod.net.common.AntennapodHttpClient;
 import de.danoeh.antennapod.net.common.RedirectChecker;
 import de.danoeh.antennapod.net.download.service.R;
-import de.danoeh.antennapod.storage.preferences.AdDetectionPreferences;
 import de.danoeh.antennapod.storage.preferences.UserPreferences;
 import okhttp3.CacheControl;
 import org.apache.commons.io.IOUtils;
@@ -59,7 +58,7 @@ public class HttpDownloader extends Downloader {
         try {
             final URI uri = UriUtil.getURIFromRequestUrl(
                     request.getFeedfileType() == FeedMedia.FEEDFILETYPE_FEEDMEDIA
-                            ? AdDetectionPreferences.rewriteForProxy(request.getSource(), request.getTitle(), null)
+                            ? request.getSource()
                             : request.getSource());
             Request.Builder httpReq = new Request.Builder().url(uri.toURL());
             httpReq.tag(request);

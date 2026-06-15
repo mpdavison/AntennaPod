@@ -8,19 +8,6 @@
             android:summary="@string/pref_ad_detection_enabled_sum"
             android:defaultValue="false"/>
 
-    <de.danoeh.antennapod.ui.preferences.preference.MaterialListPreference
-            android:key="prefAdDetectionMode"
-            android:title="@string/pref_ad_detection_mode_title"
-            android:entries="@array/pref_ad_detection_mode_entries"
-            android:entryValues="@array/pref_ad_detection_mode_values"
-            android:defaultValue="direct"/>
-
-    <EditTextPreference
-            android:key="prefAdProxyBaseUrl"
-            android:title="@string/pref_ad_proxy_base_url_title"
-            android:summary="@string/pref_ad_proxy_base_url_sum"
-            android:inputType="textUri"/>
-
     <PreferenceCategory
             android:key="prefAdTranscriptionCategory"
             android:title="@string/pref_ad_transcription_category">

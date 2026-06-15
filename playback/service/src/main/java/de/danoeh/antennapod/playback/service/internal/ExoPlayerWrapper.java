@@ -50,7 +50,6 @@ import de.danoeh.antennapod.playback.service.R;
 import de.danoeh.antennapod.net.common.HttpCredentialEncoder;
 import de.danoeh.antennapod.net.common.NetworkUtils;
 import de.danoeh.antennapod.model.playback.Playable;
-import de.danoeh.antennapod.storage.preferences.AdDetectionPreferences;
 import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
 import io.reactivex.rxjava3.disposables.Disposable;
@@ -240,7 +239,6 @@ public class ExoPlayerWrapper {
             throws IllegalArgumentException, IllegalStateException {
         Log.d(TAG, "setDataSource: " + s);
         if (s != null && (s.startsWith("http://") || s.startsWith("https://"))) {
-            s = AdDetectionPreferences.rewriteForProxy(s);
         }
         final DefaultHttpDataSource.Factory httpDataSourceFactory = new DefaultHttpDataSource.Factory();
         httpDataSourceFactory.setUserAgent(UserAgentInterceptor.USER_AGENT);

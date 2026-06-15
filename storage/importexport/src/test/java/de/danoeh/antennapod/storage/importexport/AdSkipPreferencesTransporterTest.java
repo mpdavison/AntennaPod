@@ -38,17 +38,14 @@ public class AdSkipPreferencesTransporterTest {
 
     @Test
     public void writeJson_serializesStringPrefs() throws Exception {
-        when(prefs.contains(AdDetectionPreferences.PREF_AD_DETECTION_MODE)).thenReturn(true);
-        when(prefs.getString(AdDetectionPreferences.PREF_AD_DETECTION_MODE, "")).thenReturn("proxy");
-        when(prefs.contains(AdDetectionPreferences.PREF_AD_PROXY_BASE_URL)).thenReturn(true);
-        when(prefs.getString(AdDetectionPreferences.PREF_AD_PROXY_BASE_URL, "")).thenReturn("http://localhost:33333");
+        when(prefs.contains(AdDetectionPreferences.PREF_AD_TRANSCRIPTION_PROFILES)).thenReturn(true);
+        when(prefs.getString(AdDetectionPreferences.PREF_AD_TRANSCRIPTION_PROFILES, "")).thenReturn("[]");
 
         StringWriter writer = new StringWriter();
         AdSkipPreferencesTransporter.writeJson(writer, prefs);
 
         JSONObject json = new JSONObject(writer.toString());
-        assertEquals("proxy", json.getString(AdDetectionPreferences.PREF_AD_DETECTION_MODE));
-        assertEquals("http://localhost:33333", json.getString(AdDetectionPreferences.PREF_AD_PROXY_BASE_URL));
+        assertEquals("[]", json.getString(AdDetectionPreferences.PREF_AD_TRANSCRIPTION_PROFILES));
     }
 
     @Test
@@ -71,20 +68,17 @@ public class AdSkipPreferencesTransporterTest {
         AdSkipPreferencesTransporter.writeJson(writer, prefs);
 
         JSONObject json = new JSONObject(writer.toString());
-        assertFalse(json.has(AdDetectionPreferences.PREF_AD_DETECTION_MODE));
         assertFalse(json.has(AdDetectionPreferences.PREF_AD_DETECTION_ENABLED));
     }
 
     @Test
     public void restoreJson_restoresStringPrefs() throws Exception {
         JSONObject json = new JSONObject();
-        json.put(AdDetectionPreferences.PREF_AD_DETECTION_MODE, "direct");
-        json.put(AdDetectionPreferences.PREF_AD_PROXY_BASE_URL, "http://myserver:33333");
+        json.put(AdDetectionPreferences.PREF_AD_TRANSCRIPTION_PROFILES, "[]");
 
         AdSkipPreferencesTransporter.restoreJson(json.toString(), prefs);
 
-        verify(editor).putString(AdDetectionPreferences.PREF_AD_DETECTION_MODE, "direct");
-        verify(editor).putString(AdDetectionPreferences.PREF_AD_PROXY_BASE_URL, "http://myserver:33333");
+        verify(editor).putString(AdDetectionPreferences.PREF_AD_TRANSCRIPTION_PROFILES, "[]");
         verify(editor).apply();
     }
 
@@ -102,11 +96,10 @@ public class AdSkipPreferencesTransporterTest {
     @Test
     public void restoreJson_doesNotRestoreAbsentKeys() throws Exception {
         JSONObject json = new JSONObject();
-        json.put(AdDetectionPreferences.PREF_AD_DETECTION_MODE, "proxy");
 
         AdSkipPreferencesTransporter.restoreJson(json.toString(), prefs);
 
-        verify(editor, never()).putString(eq(AdDetectionPreferences.PREF_AD_PROXY_BASE_URL), anyString());
+        verify(editor, never()).putString(eq(AdDetectionPreferences.PREF_AD_TRANSCRIPTION_PROFILES), anyString());
         verify(editor, never()).putBoolean(anyString(), anyBoolean());
     }
 

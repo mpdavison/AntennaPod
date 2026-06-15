@@ -13,15 +13,10 @@ import java.util.UUID;
 
 public abstract class AdDetectionPreferences {
     public static final String PREF_AD_DETECTION_ENABLED = "prefAdDetectionEnabled";
-    public static final String PREF_AD_DETECTION_MODE = "prefAdDetectionMode";
     public static final String PREF_AD_TRANSCRIPTION_PROFILES = "prefAdTranscriptionProfiles";
     public static final String PREF_AD_TRANSCRIPTION_ACTIVE_ID = "prefAdTranscriptionActiveId";
     public static final String PREF_AD_CHAT_PROFILES = "prefAdChatProfiles";
     public static final String PREF_AD_CHAT_ACTIVE_ID = "prefAdChatActiveId";
-    public static final String PREF_AD_PROXY_BASE_URL = "prefAdProxyBaseUrl";
-
-    public static final String MODE_DIRECT = "direct";
-    public static final String MODE_PROXY = "proxy";
 
     public static final int ROLE_TRANSCRIPTION = 1;
     public static final int ROLE_CHAT = 2;
@@ -246,60 +241,5 @@ public abstract class AdDetectionPreferences {
 
     private static String activeIdKey(int role) {
         return role == ROLE_TRANSCRIPTION ? PREF_AD_TRANSCRIPTION_ACTIVE_ID : PREF_AD_CHAT_ACTIVE_ID;
-    }
-
-    public static String getProxyBaseUrl() {
-        String s = prefs.getString(PREF_AD_PROXY_BASE_URL, "");
-        if (s == null) {
-            return "";
-        }
-        s = s.trim();
-        while (s.endsWith("/")) {
-            s = s.substring(0, s.length() - 1);
-        }
-        return s;
-    }
-
-    public static String getMode() {
-        String m = prefs.getString(PREF_AD_DETECTION_MODE, MODE_DIRECT);
-        return MODE_PROXY.equals(m) ? MODE_PROXY : MODE_DIRECT;
-    }
-
-    public static boolean isProxyEnabled() {
-        return prefs != null && MODE_PROXY.equals(getMode()) && !getProxyBaseUrl().isEmpty();
-    }
-
-    public static String rewriteForProxy(String originalUrl) {
-        return rewriteForProxy(originalUrl, null, null);
-    }
-
-    public static String rewriteForProxy(String originalUrl, String episodeTitle, String feedTitle) {
-        if (originalUrl == null) {
-            return null;
-        }
-        if (!isProxyEnabled()) {
-            return originalUrl;
-        }
-        String proxyBase = getProxyBaseUrl();
-        if (!originalUrl.startsWith("http://") && !originalUrl.startsWith("https://")) {
-            return originalUrl;
-        }
-        if (originalUrl.startsWith(proxyBase + "/")) {
-            return originalUrl;
-        }
-        try {
-            StringBuilder sb = new StringBuilder(proxyBase)
-                    .append("/adskip/?url=")
-                    .append(java.net.URLEncoder.encode(originalUrl, "UTF-8"));
-            if (episodeTitle != null && !episodeTitle.isEmpty()) {
-                sb.append("&t=").append(java.net.URLEncoder.encode(episodeTitle, "UTF-8"));
-            }
-            if (feedTitle != null && !feedTitle.isEmpty()) {
-                sb.append("&pn=").append(java.net.URLEncoder.encode(feedTitle, "UTF-8"));
-            }
-            return sb.toString();
-        } catch (java.io.UnsupportedEncodingException e) {
-            return originalUrl;
-        }
     }
 }
