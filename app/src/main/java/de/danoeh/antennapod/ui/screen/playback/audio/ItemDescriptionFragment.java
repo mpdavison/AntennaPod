@@ -10,17 +10,21 @@ import android.view.LayoutInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.TextView;
 
 import androidx.fragment.app.Fragment;
 
 import de.danoeh.antennapod.R;
+import de.danoeh.antennapod.event.AdDetectionProgressEvent;
 import de.danoeh.antennapod.event.PlayerStatusEvent;
+import de.danoeh.antennapod.net.download.serviceinterface.AdDetectionManager;
 import de.danoeh.antennapod.playback.service.PlaybackController;
 import de.danoeh.antennapod.storage.database.DBReader;
 import de.danoeh.antennapod.storage.preferences.PlaybackPreferences;
 import de.danoeh.antennapod.ui.cleaner.ShownotesCleaner;
 import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.model.playback.Playable;
+import de.danoeh.antennapod.ui.common.Converter;
 import de.danoeh.antennapod.ui.view.ShownotesWebView;
 import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
@@ -41,6 +45,7 @@ public class ItemDescriptionFragment extends Fragment {
     private static final String PREF_PLAYABLE_ID = "prefPlayableId";
 
     private ShownotesWebView webvDescription;
+    private TextView adSummaryText;
     private Disposable webViewLoader;
     private String loadedData = "";
 
@@ -49,6 +54,7 @@ public class ItemDescriptionFragment extends Fragment {
         Log.d(TAG, "Creating view");
         View root = inflater.inflate(R.layout.item_description_fragment, container, false);
         webvDescription = root.findViewById(R.id.webview);
+        adSummaryText = root.findViewById(R.id.adSummaryText);
         webvDescription.setTimecodeSelectedListener(time ->
                 PlaybackController.bindToService(getActivity(), playbackService ->
                         playbackService.seekTo(time)));
@@ -122,7 +128,40 @@ public class ItemDescriptionFragment extends Fragment {
                     webvDescription.loadDataWithBaseURL("https://127.0.0.1", data, "text/html",
                             "utf-8", "about:blank");
                     Log.d(TAG, "Webview loaded");
+                    updateAdSummary();
                 }, error -> Log.e(TAG, Log.getStackTraceString(error)));
+    }
+
+    private void updateAdSummary() {
+        Context context = getContext();
+        if (context == null || adSummaryText == null) {
+            return;
+        }
+        long mediaId = PlaybackPreferences.getCurrentlyPlayingFeedMediaId();
+        if (mediaId <= 0) {
+            adSummaryText.setVisibility(View.GONE);
+            return;
+        }
+        int progress = AdDetectionManager.getProgress(mediaId);
+        if (progress > 0 && progress < 100) {
+            adSummaryText.setText(R.string.ad_detection_summary_processing);
+            adSummaryText.setVisibility(View.VISIBLE);
+            return;
+        }
+        long[] summary = AdDetectionManager.getAdSummary(context,
+                DBReader.getFeedMedia(mediaId));
+        if (summary == null) {
+            adSummaryText.setVisibility(View.GONE);
+            return;
+        }
+        if (summary[0] == 0) {
+            adSummaryText.setText(R.string.ad_detection_summary_none);
+        } else {
+            String totalStr = Converter.getDurationStringLong((int) summary[1]);
+            adSummaryText.setText(getString(R.string.ad_detection_summary_ads,
+                    (int) summary[0], totalStr));
+        }
+        adSummaryText.setVisibility(View.VISIBLE);
     }
 
     @Override
@@ -188,5 +227,13 @@ public class ItemDescriptionFragment extends Fragment {
     @Subscribe(threadMode = ThreadMode.MAIN)
     public void onPlayerStatusEvent(PlayerStatusEvent event) {
         load();
+    }
+
+    @Subscribe(sticky = true, threadMode = ThreadMode.MAIN)
+    public void onAdDetectionProgress(AdDetectionProgressEvent event) {
+        long mediaId = PlaybackPreferences.getCurrentlyPlayingFeedMediaId();
+        if (mediaId > 0 && event.getMediaIds().contains(mediaId)) {
+            updateAdSummary();
+        }
     }
 }

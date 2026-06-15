@@ -1,16 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
-<de.danoeh.antennapod.ui.view.NestedScrollableHost
+<RelativeLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:fillViewport="false"
-    android:nestedScrollingEnabled="true"
-    app:preferVertical="10">
+    android:layout_height="match_parent">
 
-    <de.danoeh.antennapod.ui.view.ShownotesWebView
-        android:id="@+id/webview"
+    <de.danoeh.antennapod.ui.view.NestedScrollableHost
+        android:id="@+id/descriptionHost"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        android:layout_above="@id/adSummaryText"
+        android:fillViewport="false"
+        android:nestedScrollingEnabled="true"
+        app:preferVertical="10">
 
-</de.danoeh.antennapod.ui.view.NestedScrollableHost>
+        <de.danoeh.antennapod.ui.view.ShownotesWebView
+            android:id="@+id/webview"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+    </de.danoeh.antennapod.ui.view.NestedScrollableHost>
+
+    <TextView
+        android:id="@+id/adSummaryText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:gravity="center"
+        android:paddingVertical="8dp"
+        android:paddingHorizontal="16dp"
+        android:visibility="gone"
+        tools:text="No ads detected"
+        style="@style/AntennaPod.TextView.ListItemSecondaryTitle" />
+
+</RelativeLayout>
