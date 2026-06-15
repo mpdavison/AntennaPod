@@ -244,7 +244,10 @@ public class ItemFragment extends Fragment {
         if (disposable != null) {
             disposable.dispose();
         }
-        viewBinding.contentRoot.removeView(viewBinding.webvDescription);
+        ViewGroup parent = (ViewGroup) viewBinding.webvDescription.getParent();
+        if (parent != null) {
+            parent.removeView(viewBinding.webvDescription);
+        }
         viewBinding.webvDescription.destroy();
         viewBinding = null;
     }
