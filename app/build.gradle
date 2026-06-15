@@ -20,6 +20,8 @@ android {
                 arguments = [eventBusIndex: 'de.danoeh.antennapod.ApEventBusIndex']
             }
         }
+
+        buildConfigField "String", "DEEPSEEK_API_KEY", "\"REMOVED_API_KEY\""
     }
 
     signingConfigs {

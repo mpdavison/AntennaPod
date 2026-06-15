@@ -8,6 +8,9 @@ import de.danoeh.antennapod.storage.database.DBReader;
 import de.danoeh.antennapod.storage.database.DBWriter;
 import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedItemFilter;
+import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
+import io.reactivex.rxjava3.core.Observable;
+import io.reactivex.rxjava3.schedulers.Schedulers;
 import org.greenrobot.eventbus.EventBus;
 
 public class RemoveFromQueueSwipeAction implements SwipeAction {
@@ -34,14 +37,20 @@ public class RemoveFromQueueSwipeAction implements SwipeAction {
 
     @Override
     public void performAction(FeedItem item, Fragment fragment, FeedItemFilter filter) {
-        int position = DBReader.getQueueIDList().indexOf(item.getId());
-        DBWriter.removeQueueItem(fragment.requireActivity(), true, item);
-        if (willRemove(filter, item)) {
-            EventBus.getDefault().post(new MessageEvent(
-                    fragment.getResources().getQuantityString(R.plurals.removed_from_queue_message, 1, 1),
-                    context -> DBWriter.addQueueItemAt(fragment.requireActivity(), item.getId(), position),
-                    fragment.getString(R.string.undo)));
-        }
+        Observable.fromCallable(() -> DBReader.getQueueIDList().indexOf(item.getId()))
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(position -> {
+                    DBWriter.removeQueueItem(fragment.requireActivity(), true, item);
+                    if (willRemove(filter, item)) {
+                        EventBus.getDefault().post(new MessageEvent(
+                                fragment.getResources().getQuantityString(
+                                        R.plurals.removed_from_queue_message, 1, 1),
+                                context -> DBWriter.addQueueItemAt(
+                                        fragment.requireActivity(), item.getId(), position),
+                                fragment.getString(R.string.undo)));
+                    }
+                });
     }
 
     @Override

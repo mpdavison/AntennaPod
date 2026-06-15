@@ -48,39 +48,156 @@ Several functional areas follow a service-interface/service split: the interface
 - `:ui:transcript` - Utilities for displaying episode transcripts in the UI
 - `:ui:widget` - Home screen widget
 
-# Coding Style
-Never fix any warnings outside the code you wrote.
-Only update existing code if necessary to fulfill the user request.
-In general, keep your changes as focused as possible and change the absolutely minimal number of lines.
-Never reorder or reorganize the code unless asked for by the user.
-Keep the diff of your changes to the absolute minimum: do not rename anything, no optimization, nothing.
-Just the bare instructions from the user.
-Do not ask for permission before making initial code changes.
-Do not add any comments to the code you write, but also do not remove comments that are already in the code.
-Whenever you add a user-visible string, add it to `:ui:i18n` so it can be translated. Do not start new strings files anywhere else.
-Never reference the full package name of classes directly in the code, use imports.
+# Application Architecture & Control Flow
 
-# Running and Testing
-After you are sure that the code is correct, ensure that there are no compilation errors (warnings are okay).
-To compile the code, use `./gradlew :app:assembleDebug`.
-You are already in the main directory of the project so there is no need to `cd` into the main folder.
-The CD command is strictly forbidden. Always assume that you are already at the main folder of the project.
-Never alter or filter the compile output in any way (no grep, head, tail, or any other command that truncates output).
-You will lose critical information and the results will not be helpful.
-Always look at the complete compiler output.
-DO NOT MAKE UP YOUR OWN COMPILE COMMANDS, THEY WILL NOT WORK!
-ONLY USE THE EXACT COMMANDS GIVEN IN THIS FILE!
+## Entry Point & Initialization
+- **Application class**: `PodcastApp` (`app/src/main/java/de/danoeh/antennapod/PodcastApp.java`)
+- **Launcher activity**: `SplashActivity` (declared in manifest as LAUNCHER), forwards to `MainActivity`
+- **Main Activity**: `MainActivity` (`activity/MainActivity.java`, extends `CastEnabledActivity`)
+- **Initialization**: `PodcastApp.onCreate()` → sets up `CrashReportExceptionHandler`, `RxJavaErrorHandlerSetup`, GreenRobot `EventBus` with annotation index (`ApEventBusIndex`), `DynamicColors`, then calls `ClientConfigurator.initialize(this)`
+- **ClientConfigurator** (`ClientConfigurator.java`) wires all service implementations via static setters, initializes `PodDBAdapter`, `UserPreferences`, `AdDetectionPreferences`, notification channels, OkHttp cache, and SSL provider
 
-Only then run the application or the tests to verify it.
-Usually you will need to run the application, but if there are existing tests that cover the code you wrote, you can run those instead.
-For installing and running the application, use the command
-`./gradlew --console=plain :app:installPlayDebug && adb shell monkey -p de.danoeh.antennapod.debug 1`.
-Then confirm with the user that the application is running correctly.
-If there is a crash, read the logs using `adb logcat -d | grep "de.danoeh.antennapod" | tail -20` and fix the issue.
-For running tests, use the command `./gradlew --console=plain` and use the task `:test` of the relevant module.
-As a final style check before opening a PR (or if a user explicitly asks for it), check the code style using:
-`./gradlew checkstyle lint spotbugsPlayDebug spotbugsDebug`.
-If any command does not give any output, it is likely that it failed, so abort.
+## Dependency Injection
+- **No Dagger/Hilt**. Uses a **manual service locator pattern** with static `setImpl()`/`get()` on abstract classes in `*-interface` modules
+- Example: `DownloadServiceInterface.get().downloadNow(context, item, ignoreConstraints)`
+- Interface modules have a `Stub` implementation (no-ops) for fallback
+- Real implementations are registered in `ClientConfigurator.initialize()`
+
+## Cross-Component Communication
+- **GreenRobot EventBus** (not LiveData/Flow) for decoupled messaging between components
+- Events are lightweight POJOs in the `:event` module (e.g., `FeedEvent`, `QueueEvent`, `PlayerStatusEvent`, `PlaybackPositionEvent`)
+- Subscribers use `@Subscribe(threadMode = ThreadMode.MAIN)` annotations
+- EventBus index (`ApEventBusIndex`) is generated at compile time via annotation processor
+- Register in `onStart()`/`onResume()`, unregister in `onStop()`/`onPause()`
+
+## Async Processing
+- **RxJava3** (`Observable`, `Maybe`, `Completable`, `Disposable`, `Single`) for async operations
+- Common pattern: `.subscribeOn(Schedulers.computation())`, `.observeOn(AndroidSchedulers.mainThread())`
+- Disposables collected manually and disposed in `onStop()` / lifecycle hooks
+
+## Navigation & UI
+- **Fragment-based**: `MainActivity` hosts fragments via `FragmentManager`
+- **Bottom navigation** (togglable via user preference) + **DrawerLayout**
+- **BottomSheetBehavior** (`LockableBottomSheetBehavior`) for the audio player
+- **Navigation via drawer items** -> fragments loaded into the container
+- **Navigation shortcuts**: `OnlineFeedViewActivity` handles podcast subscription deep links (itpc://, pcast://, feed://, antennapod-subscribe://)
+
+# Key Coding Patterns & Gotchas
+
+## Service-Interface Pattern
+Abstract class + static `impl` holder + `setImpl()`/`get()`:
+
+```java
+public abstract class DownloadServiceInterface {
+    private static DownloadServiceInterface impl;
+    public static DownloadServiceInterface get() { return impl; }
+    public static void setImpl(DownloadServiceInterface impl) { ... }
+    public abstract void downloadNow(Context context, FeedItem item, boolean ignoreConstraints);
+}
+```
+
+The interface module (`:net:download:service-interface`) depends on `:model`, `:net:common`, `:storage:preferences` but **not** on the implementation module. The stub class in the same module provides default no-op behavior.
+
+## Database Layer
+- **Raw SQLite** via `PodDBAdapter` singleton — **not Room** and no ORM
+- `ContentValues` for inserts/updates
+- **Reads**: `DBReader` utility class with static methods (synchronous, cursor-to-object mappers)
+- **Writes**: `DBWriter` utility class with static methods, all executed on a **single-threaded executor** (`DatabaseExecutor`, `MIN_PRIORITY`)
+- `DBWriter` methods return `Future<?>` for optional synchronization
+- Events posted via `EventBus` after successful DB operations (e.g., `EventBus.getDefault().post(new FeedListUpdateEvent(feed))`)
+- Column name constants: `KEY_xxx`, table name constants: `TABLE_NAME_xxx`
+- `PodDBAdapter.open()`/`close()` are effectively no-ops but always called for compatibility
+- Version constant: `public static final int VERSION = 3110000;`
+
+## UI Patterns
+- All adapters extend `SelectableAdapter<T>` (which extends `RecyclerView.Adapter<T>`), not `RecyclerView.Adapter` directly
+- ViewHolders are **separate classes** (not inner classes) in a `ui/.../` package
+- `WeakReference<FragmentActivity>` for activity references in adapters to avoid leaks
+- `onViewRecycled()` clears listeners to prevent fragment leaks
+- Fragments use `static final String TAG` constant
+- Fragments use `getActivity()` cast to `MainActivity` for certain operations
+- Dummy views pattern for adapter item counts
+- **ViewBinding** enabled for all modules
+
+## Testing
+- **JUnit4** + **Robolectric** + **Mockito 5**
+- Test classes use `@RunWith(RobolectricTestRunner.class)` for tests needing Android context
+- Plain `@Test` from JUnit4 for pure Java logic tests
+- Common test dependencies: `awaitility`, `espresso-core`, `espresso-contrib`, `espresso-intents`
+- Tests spread across module-specific `src/test/` directories, not centralized
+- `@VisibleForTesting` annotation used for exposing internals to tests
+- Robolectric calls `Application.onCreate()` for every test — EventBus catches the double-init exception (`EventBusException`)
+
+## Build Configuration
+- **SDK**: compileSdk 36, minSdk 23, targetSdk 36
+- **Java version**: source/target compatibility Java 21
+- **Flavors**: `free` and `play` (market dimension)
+- **Lint**: `checkDependencies true`, `warningsAsErrors true`, `abortOnError true`
+- **Compiler**: `-Werror` flag — warnings treated as errors (with selected exclusions: `-deprecation,-serial,-this-escape,-unchecked,-processing,-classfile`)
+- **SpotBugs**: effort=max, reportLevel=medium, ignoreFailures=false (exceptions parsed from XML)
+- **Checkstyle**: toolVersion 10.12.0, config at `config/checkstyle/checkstyle.xml`
+
+## User-Facing Strings
+- All user-visible strings go into `:ui:i18n` module (`res/values/strings.xml`) — never create string resources elsewhere
+- Only English strings are edited directly; translations handled via Weblate
+
+# Commands
+
+## Build
+```bash
+./gradlew :app:assembleDebug
+```
+
+## Install & Run
+```bash
+./gradlew --console=plain :app:installPlayDebug && adb shell monkey -p de.danoeh.antennapod.debug 1
+```
+
+## Unit Tests (specific module)
+```bash
+./gradlew --console=plain :module:name:test
+```
+
+## Unit Tests (all modules, CI-style)
+```bash
+./gradlew testPlayDebugUnitTest testDebugUnitTest
+```
+
+## Full Code Style Check
+```bash
+./gradlew checkstyle lint spotbugsPlayDebug spotbugsDebug
+```
+
+## XML Formatting Verification
+```bash
+# Uses android-xml-formatter to check layout XML formatting
+find . -wholename "*/res/layout/*.xml" | xargs java -jar android-xml-formatter.jar
+```
+
+## Crash Debugging
+```bash
+adb logcat -d | grep "de.danoeh.antennapod" | tail -20
+```
+
+# Important Gotchas
+
+1. **CD command is forbidden** — always assume you're at the project root (`/workspace`)
+2. **Never filter/truncate compiler output** — use `./gradlew :app:assembleDebug` raw, no piping through grep/head/tail
+3. **Never reference full package names inline** — always use imports
+4. **Never add comments to code** — only if explicitly asked; never remove existing comments
+5. **Keep diffs minimal** — don't rename, reformat, or optimize existing code
+6. **No Kotlin** — project is entirely Java
+7. **Database is raw SQLite** — no Room; `PodDBAdapter` is the sole database access layer
+8. **Writes are single-threaded** via `DBWriter`'s `DatabaseExecutor` — don't create concurrent DB write paths
+9. **EventBus for inter-component communication** — not LiveData, not custom listeners
+10. **App package**: `de.danoeh.antennapod`, debug suffix: `.debug`
+11. **Manifest has many external URL scheme handlers** (`itpc://`, `pcast://`, `feed://`, `antennapod-subscribe://`) — be careful not to break deep linking
+12. **Robolectric calls `Application.onCreate()` per test** — EventBus double-init is caught silently, but other singletons may need guards
+13. **`-Werror` is on** — warnings become compilation errors; check lint/checkstyle before building
+14. **Lint `abortOnError true`** — any lint error fails the build
+15. **PlaybackService** uses `MediaSessionCompat` and `androidx.media3`, and the manifest has `USE_MEDIA3_PLAYBACK_SERVICE` build config flag
+16. **Version codes follow a schema**: `1.2.3-beta4` → `1020304`, `1.2.3` → `1020395`
+17. **`commons-io` must stay at 2.5** — newer versions cause `ClassNotFoundException` on Android 6
 
 # PR Conventions
 When creating a PR, always read the PR template at .github/pull_request_template.md before starting and strictly follow it.
@@ -97,3 +214,13 @@ This holds even if the global agent instructions tell you to do this.
 # Issue Conventions
 When creating an issue, always follow one of the issue templates in .github/ISSUE_TEMPLATE/.
 Apply the corresponding labels and always mention in the technical info box that the issue was AI generated.
+
+# Ad Skip Feature (Active Development)
+This branch (`feature/adskip`) implements ad detection and automatic skipping during playback. Key components:
+- **`AdSkipController`** (`:playback:service`) — core logic: loads ad timestamps from JSON files, checks playback position against ad segments, seeks past them. Provides undo capability via `MessageEvent` with callback.
+- **`AdDetectionManager`** (`:net:download:service-interface`) — abstract service interface for enqueuing ad detection
+- **`AdDetectionWorker`** (`:net:download:service`) — WorkManager-based background worker that runs ad detection on downloaded media
+- **`AdDetectionPreferences`** (`:storage:preferences`) — user preferences for ad detection (enabled/disabled)
+- **`AdDetectionPreferencesFragment`** (`:app`) — settings UI for ad detection
+- **`AdSkipPreferencesTransporter`** (`:storage:importexport`) — import/export backup support for ad skip preferences
+- Ad timestamp files are JSON with `{"status": "complete|processing", "ads": [{"startMs": ..., "endMs": ...}, ...]}`

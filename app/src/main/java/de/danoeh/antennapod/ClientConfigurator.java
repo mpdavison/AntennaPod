@@ -45,7 +45,7 @@ public class ClientConfigurator {
         }
         PodDBAdapter.init(context);
         UserPreferences.init(context);
-        AdDetectionPreferences.init(context);
+        AdDetectionPreferences.init(context, BuildConfig.DEEPSEEK_API_KEY);
         SynchronizationCredentials.init(context);
         SynchronizationSettings.init(context);
         UsageStatistics.init(context);

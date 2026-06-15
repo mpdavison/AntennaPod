@@ -9,6 +9,7 @@ import org.json.JSONException;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 public abstract class AdDetectionPreferences {
     public static final String PREF_AD_DETECTION_ENABLED = "prefAdDetectionEnabled";
@@ -26,37 +27,88 @@ public abstract class AdDetectionPreferences {
     public static final int ROLE_CHAT = 2;
 
     public static final String DEFAULT_CLASSIFICATION_PROMPT =
-            "You are an expert at detecting advertisements and sponsor reads in podcast transcripts.\n\n"
-            + "Advertisements often span several consecutive segments — a single ad break typically runs "
-            + "30\u2013120 seconds. Signals of an ad include:\n"
-            + "- In the beginning of a podcast episode, they often have ads for /other/ podcasts.\n"
-            + "- Many ads are played more than once throughout a podcast\n"
-            + "- Phrases like 'brought to you by', 'sponsored by', 'this episode is supported by', "
-            + "'today's sponsor', 'a word from our sponsor'\n"
-            + "- Brand names, product descriptions, pricing, discount codes (e.g. 'use code XYZ')\n"
-            + "- Website, sale or app mentions (e.g. 'blowout sale', 'go to brand.com', 'download the app')\n"
-            + "- Calls to action: 'sign up', 'try for free', 'check it out', 'click the link', 'get 20% off'\n"
-            + "- The host directly endorsing or describing a product or service\n"
-            + "- Topic suddenly shifting away from the main content and then returning\n"
-            + "- Mentions of other podcasts, especially in a promotional context\n"
-            + "- References to podcast platforms or ad networks (e.g. 'available on Spotify', "
-            + "'listen on Apple Podcasts', 'wherever you get your podcasts')\n"
-            + "- Look out for podcast content resumption phrases (e.g. 'welcome back') to help identify where ads end\n"
-            + "- Political ads often mention candidates, parties, voting, elections, or political issues\n\n"
-            + "IMPORTANT: A single ad break is usually spread across MULTIPLE consecutive segments. "
-            + "Always use the startMs of the FIRST segment of the ad break and the endMs of the LAST segment "
-            + "of the same break. It is very unlikely that an ad segment is less than 15 seconds.\n\n"
-            + "EXTRA CRITICALLY IMPORTANT: Make a second pass before returning the output. If any ads are "
-            + "close together but separated by a non-ad segment (like one minute or less of non-ad time "
-            + "between the end of one ad and the start of the next), then it is likely that the time in "
-            + "between the ads is really just more ad content, so mark that as ad content, too.\n\n"
-            + "Return a JSON object: {\"ads\": [{\"startMs\": <int>, \"endMs\": <int>}, ...]}\n"
+            "You are an expert at detecting advertisements and sponsor reads in podcast transcripts. "
+            + "Your goal is to catch ALL ads — favor false positives over false negatives. "
+            + "When unsure, mark it as an ad.\n\n"
+            + "IMPORTANT CONTEXT: Podcast ads come in many forms. Be highly suspicious of any segment that:\n"
+            + "- Mentions a brand, product, service, or company by name (unless it's clearly the podcast's own topic)\n"
+            + "- Contains pricing, discounts, coupon codes, promo codes, or special offers\n"
+            + "- Includes calls to action: 'sign up', 'try for free', 'check it out', 'click the link', "
+            + "'get 20% off', 'use code', 'visit our website', 'download the app', 'subscribe'\n"
+            + "- Contains phrases like 'brought to you by', 'sponsored by', 'this episode is supported by', "
+            + "'today's sponsor', 'a word from our sponsor', 'our sponsor', 'in partnership with', "
+            + "'supported by', 'brought to you in part by'\n"
+            + "- Mentions websites, URLs, or app stores\n"
+            + "- The host directly endorses, recommends, or describes a product or service in detail\n"
+            + "- Discusses a sale, promotion, limited-time offer, or 'special deal'\n"
+            + "- References podcast platforms or ad networks ('available on Spotify', "
+            + "'listen on Apple Podcasts', 'wherever you get your podcasts', 'rate and review')\n"
+            + "- Mentions other podcasts in a promotional context, especially at the beginning or end\n"
+            + "- Topic shifts abruptly away from the main content and later returns\n"
+            + "- Contains content resumption phrases ('welcome back', 'now back to', 'let's continue', "
+            + "'so anyway', 'enough of that', 'back to the show')\n"
+            + "- Describes a service, tool, or platform with marketing-like language "
+            + "(positive adjectives, benefit claims, testimonials)\n"
+            + "- Contains political endorsements, candidate names, voting appeals\n"
+            + "- Mentions affiliate links or partnerships\n\n"
+            + "PATTERN RECOGNITION:\n"
+            + "- Ads typically have a different tone, pace, or production quality than the main content\n"
+            + "- Ad breaks often span MULTIPLE consecutive segments (usually 30-120 seconds total)\n"
+            + "- The same ad or sponsor is often mentioned more than once in an episode\n"
+            + "- Pre-roll ads (first few minutes) and post-roll ads (last few minutes) are very common\n"
+            + "- Host-read ads often start with a conversational pivot before transitioning into promotional language\n"
+            + "- Segments under 15 seconds are rarely standalone ads but may be the tail end of one\n\n"
+            + "CRITICAL RULES:\n"
+            + "1. If ANY segment in a cluster of 2+ consecutive segments has ad signals, "
+            + "mark the ENTIRE cluster as an ad break.\n"
+            + "2. If two ad breaks are separated by 2 minutes or less of non-ad content, "
+            + "it's likely all one long ad break — merge them.\n"
+            + "3. Pay special attention to the first 3 minutes and last 3 minutes of the episode — "
+            + "this is where ads are most common.\n"
+            + "4. A single ad break uses the startMs of the FIRST segment and the endMs of the LAST segment.\n"
+            + "5. Make a second pass before finalizing. Look for any ad-like segments you might have missed "
+            + "and any breaks that should be merged.\n\n"
+            + "Return ONLY valid JSON: {\"ads\": [{\"startMs\": <int>, \"endMs\": <int>}, ...]}\n"
             + "If there are no ads return {\"ads\": []}.";
 
     private static SharedPreferences prefs;
 
     public static void init(Context context) {
+        init(context, "");
+    }
+
+    public static void init(Context context, String defaultChatApiKey) {
         prefs = PreferenceManager.getDefaultSharedPreferences(context);
+
+        if (!prefs.contains(PREF_AD_DETECTION_ENABLED)) {
+            prefs.edit().putBoolean(PREF_AD_DETECTION_ENABLED, true).apply();
+        }
+
+        AdProviderProfile transcriptionProfile = new AdProviderProfile();
+        transcriptionProfile.id = UUID.randomUUID().toString();
+        transcriptionProfile.name = "Local Whisper";
+        transcriptionProfile.type = AdProviderProfile.TYPE_CUSTOM;
+        transcriptionProfile.apiKey = "not-needed-locally";
+        transcriptionProfile.baseUrl = "http://192.168.2.58:8001/v1";
+        transcriptionProfile.model = "deepdml/faster-whisper-large-v3-turbo-ct2";
+
+        AdProviderProfile chatProfile = new AdProviderProfile();
+        chatProfile.id = UUID.randomUUID().toString();
+        chatProfile.name = "DeepSeek";
+        chatProfile.type = AdProviderProfile.TYPE_CUSTOM;
+        chatProfile.apiKey = defaultChatApiKey;
+        chatProfile.baseUrl = "https://api.deepseek.com/v1";
+        chatProfile.model = "deepseek-chat";
+        chatProfile.prompt = DEFAULT_CLASSIFICATION_PROMPT;
+
+        if (getProfiles(ROLE_TRANSCRIPTION).isEmpty()) {
+            setProfiles(ROLE_TRANSCRIPTION, List.of(transcriptionProfile));
+            setActiveProfileId(ROLE_TRANSCRIPTION, transcriptionProfile.id);
+        }
+        if (getProfiles(ROLE_CHAT).isEmpty()) {
+            setProfiles(ROLE_CHAT, List.of(chatProfile));
+            setActiveProfileId(ROLE_CHAT, chatProfile.id);
+        }
     }
 
     public static boolean isEnabled() {
