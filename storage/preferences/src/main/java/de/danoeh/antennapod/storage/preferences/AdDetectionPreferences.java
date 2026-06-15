@@ -103,7 +103,7 @@ public abstract class AdDetectionPreferences {
         chatProfile.type = AdProviderProfile.TYPE_CUSTOM;
         chatProfile.apiKey = defaultChatApiKey;
         chatProfile.baseUrl = "https://api.deepseek.com/v1";
-        chatProfile.model = "deepseek-chat";
+        chatProfile.model = "deepseek-v4-pro";
         chatProfile.prompt = DEFAULT_CLASSIFICATION_PROMPT;
 
         if (getProfiles(ROLE_TRANSCRIPTION).isEmpty()) {
