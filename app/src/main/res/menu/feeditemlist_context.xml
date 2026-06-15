@@ -51,6 +51,11 @@
         android:title="@string/reset_playback_position_label" />
 
     <item
+        android:id="@+id/clear_ad_timestamps_item"
+        android:menuCategory="container"
+        android:title="@string/clear_ad_timestamps_label" />
+
+    <item
         android:id="@+id/share_item"
         android:menuCategory="container"
         android:title="@string/share_label" />

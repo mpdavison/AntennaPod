@@ -17,8 +17,10 @@ import java.util.Collections;
 import java.util.List;
 
 import de.danoeh.antennapod.R;
+import de.danoeh.antennapod.event.AdDetectionProgressEvent;
 import de.danoeh.antennapod.event.MessageEvent;
 import de.danoeh.antennapod.model.feed.Feed;
+import de.danoeh.antennapod.net.download.serviceinterface.AdDetectionManager;
 import de.danoeh.antennapod.net.download.serviceinterface.DownloadServiceInterface;
 import de.danoeh.antennapod.storage.preferences.PlaybackPreferences;
 import de.danoeh.antennapod.playback.service.PlaybackServiceInterface;
@@ -72,6 +74,7 @@ public class FeedItemMenuHandler {
         boolean canRemoveFavorite = false;
         boolean canShowTranscript = false;
         boolean canShowSocialInteract = false;
+        boolean canClearAdTimestamps = false;
 
         for (FeedItem item : selectedItems) {
             final boolean hasMedia = item.getMedia() != null;
@@ -105,6 +108,11 @@ public class FeedItemMenuHandler {
             }
         }
 
+        if (selectedItems.size() == 1) {
+            FeedItem item = selectedItems.get(0);
+            canClearAdTimestamps = item.hasMedia() && item.getMedia().isDownloaded();
+        }
+
         setItemVisibility(menu, R.id.skip_episode_item, canSkip);
         setItemVisibility(menu, R.id.remove_from_queue_item, canRemoveFromQueue);
         setItemVisibility(menu, R.id.add_to_queue_item, canAddToQueue);
@@ -115,6 +123,7 @@ public class FeedItemMenuHandler {
         setItemVisibility(menu, R.id.mark_unread_item, canMarkUnplayed);
         setItemVisibility(menu, R.id.reset_position, canResetPosition);
         setItemVisibility(menu, R.id.open_social_interact_url, canShowSocialInteract);
+        setItemVisibility(menu, R.id.clear_ad_timestamps_item, canClearAdTimestamps);
 
         // Display proper strings when item has no media
         if (selectedItems.size() == 1 && selectedItems.get(0).getMedia() == null) {
@@ -225,6 +234,13 @@ public class FeedItemMenuHandler {
         } else if (menuItemId == R.id.share_item) {
             ShareDialog shareDialog = ShareDialog.newInstance(selectedItem);
             shareDialog.show((fragment.getActivity().getSupportFragmentManager()), "ShareEpisodeDialog");
+        } else if (menuItemId == R.id.clear_ad_timestamps_item) {
+            FeedMedia media = selectedItem.getMedia();
+            if (media != null) {
+                AdDetectionManager.adTimestampsFileFor(context, media).delete();
+                AdDetectionManager.setProgress(media.getId(), -1);
+                EventBus.getDefault().post(new AdDetectionProgressEvent(Collections.singleton(media.getId())));
+            }
         } else {
             Log.d(TAG, "Unknown menuItemId: " + menuItemId);
             return false;
