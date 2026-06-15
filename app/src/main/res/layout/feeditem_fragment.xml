@@ -202,23 +202,14 @@
             android:layout_height="1dp"
             android:background="?android:attr/dividerVertical" />
 
-        <TextView
-            android:id="@+id/adSummaryText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center"
-            android:paddingVertical="8dp"
-            android:paddingHorizontal="16dp"
-            android:visibility="gone"
-            tools:text="Ads detected: 3 (1m 45s total)"
-            style="@style/AntennaPod.TextView.ListItemSecondaryTitle" />
-
     </LinearLayout>
 
     <de.danoeh.antennapod.ui.view.NestedScrollableHost
+        android:id="@+id/shownotesContainer"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_below="@id/header"
+        android:layout_above="@id/adSummaryText"
         app:preferVertical="3">
 
         <de.danoeh.antennapod.ui.view.ShownotesWebView
@@ -228,6 +219,18 @@
             android:foreground="?android:windowContentOverlay" />
 
     </de.danoeh.antennapod.ui.view.NestedScrollableHost>
+
+    <TextView
+        android:id="@+id/adSummaryText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:gravity="center"
+        android:paddingVertical="8dp"
+        android:paddingHorizontal="16dp"
+        android:visibility="gone"
+        tools:text="Ads detected: 3 (1m 45s total)"
+        style="@style/AntennaPod.TextView.ListItemSecondaryTitle" />
 
     <FrameLayout
         android:layout_width="match_parent"
