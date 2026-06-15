@@ -208,7 +208,7 @@ public class EpisodeItemListAdapter extends SelectableAdapter<EpisodeItemViewHol
         }
         inflater.inflate(R.menu.feeditemlist_context, menu);
         menu.setHeaderTitle(longPressedItem.getTitle());
-        FeedItemMenuHandler.onPrepareMenu(menu, Collections.singletonList(longPressedItem), R.id.skip_episode_item);
+        FeedItemMenuHandler.onPrepareMenu(menu, Collections.singletonList(longPressedItem), mainActivityRef.get(), R.id.skip_episode_item);
     }
 
     public boolean onContextItemSelected(MenuItem item) {

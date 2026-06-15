@@ -56,6 +56,10 @@ public class FeedItemMenuHandler {
      * @return Returns true if selectedItem is not null.
      */
     public static boolean onPrepareMenu(Menu menu, List<FeedItem> selectedItems, int... excludeIds) {
+        return onPrepareMenu(menu, selectedItems, null, excludeIds);
+    }
+
+    public static boolean onPrepareMenu(Menu menu, List<FeedItem> selectedItems, Context context, int... excludeIds) {
         if (menu == null || selectedItems == null || selectedItems.isEmpty() || selectedItems.get(0) == null) {
             return false;
         }
@@ -108,9 +112,10 @@ public class FeedItemMenuHandler {
             }
         }
 
-        if (selectedItems.size() == 1) {
+        if (selectedItems.size() == 1 && context != null) {
             FeedItem item = selectedItems.get(0);
-            canClearAdTimestamps = item.hasMedia() && item.getMedia().isDownloaded();
+            canClearAdTimestamps = item.hasMedia() && item.getMedia().isDownloaded()
+                    && AdDetectionManager.isAdDetectionComplete(context, item.getMedia());
         }
 
         setItemVisibility(menu, R.id.skip_episode_item, canSkip);
