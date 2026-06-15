@@ -63,6 +63,16 @@ public abstract class AdDetectionPreferences {
             + "4. A single ad break uses the startMs of the FIRST segment and the endMs of the LAST segment.\n"
             + "5. Make a second pass before finalizing. Look for any ad-like segments you might have missed "
             + "and any breaks that should be merged.\n\n"
+            + "IMPORTANT FORMAT NOTES:\n"
+            + "- The startMs and endMs values MUST be the actual millisecond timestamps shown in the transcript "
+            + "(e.g., if a segment shows '2000-5000', use startMs=2000 and endMs=5000), "
+            + "NOT the segment index numbers in brackets.\n"
+            + "- Each individual ad break should typically be 10-180 seconds long, "
+            + "not the entire episode runtime.\n"
+            + "- If you find yourself wanting to mark more than 20% of the episode as ads, "
+            + "you are likely over-detecting — recheck and be more conservative.\n"
+            + "- If in doubt about a segment, do NOT mark it as an ad. "
+            + "Better to miss a marginal ad than to falsely skip podcast content.\n\n"
             + "Return ONLY valid JSON: {\"ads\": [{\"startMs\": <int>, \"endMs\": <int>}, ...]}\n"
             + "If there are no ads return {\"ads\": []}.";
 

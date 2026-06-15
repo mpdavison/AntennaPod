@@ -566,7 +566,10 @@
     <string name="ad_settings_import_label">Import ad detection settings</string>
     <string name="ad_settings_import_summary">Restore ad detection settings and provider profiles from a file</string>
     <string name="pref_ad_detection_enabled_title">Enable ad detection</string>
-    <string name="pref_ad_detection_enabled_sum">Detect and skip ads in downloaded and streamed episodes</string>
+    <string name="pref_ad_detection_enabled_sum">Detect and skip ads in downloaded episodes</string>
+    <string name="ad_detection_summary_processing">Ad detection in progress\u2026</string>
+    <string name="ad_detection_summary_none">No ads detected</string>
+    <string name="ad_detection_summary_ads">Ads detected: %1$d (%2$s total)</string>
     <string name="pref_ad_transcription_category">Transcription (Whisper)</string>
     <string name="pref_ad_chat_category">Classification (Chat)</string>
     <string name="pref_ad_provider_title">Provider</string>
