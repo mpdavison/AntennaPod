@@ -86,7 +86,7 @@ public abstract class AdDetectionPreferences {
         prefs = PreferenceManager.getDefaultSharedPreferences(context);
 
         if (!prefs.contains(PREF_AD_DETECTION_ENABLED)) {
-            prefs.edit().putBoolean(PREF_AD_DETECTION_ENABLED, true).apply();
+            prefs.edit().putBoolean(PREF_AD_DETECTION_ENABLED, false).apply();
         }
 
         AdProviderProfile transcriptionProfile = new AdProviderProfile();

@@ -56,10 +56,7 @@ public class HttpDownloader extends Downloader {
         ResponseBody responseBody = null;
 
         try {
-            final URI uri = UriUtil.getURIFromRequestUrl(
-                    request.getFeedfileType() == FeedMedia.FEEDFILETYPE_FEEDMEDIA
-                            ? request.getSource()
-                            : request.getSource());
+            final URI uri = UriUtil.getURIFromRequestUrl(request.getSource());
             Request.Builder httpReq = new Request.Builder().url(uri.toURL());
             httpReq.tag(request);
             httpReq.cacheControl(new CacheControl.Builder().noStore().build());

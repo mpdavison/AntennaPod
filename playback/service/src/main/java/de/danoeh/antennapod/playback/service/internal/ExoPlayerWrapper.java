@@ -238,8 +238,6 @@ public class ExoPlayerWrapper {
     public void setDataSource(String s, String user, String password)
             throws IllegalArgumentException, IllegalStateException {
         Log.d(TAG, "setDataSource: " + s);
-        if (s != null && (s.startsWith("http://") || s.startsWith("https://"))) {
-        }
         final DefaultHttpDataSource.Factory httpDataSourceFactory = new DefaultHttpDataSource.Factory();
         httpDataSourceFactory.setUserAgent(UserAgentInterceptor.USER_AGENT);
         httpDataSourceFactory.setAllowCrossProtocolRedirects(true);
