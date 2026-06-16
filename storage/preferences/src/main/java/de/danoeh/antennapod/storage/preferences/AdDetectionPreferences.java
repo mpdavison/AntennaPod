@@ -71,8 +71,8 @@ public abstract class AdDetectionPreferences {
             + "not the entire episode runtime.\n"
             + "- If you find yourself wanting to mark more than 20% of the episode as ads, "
             + "you are likely over-detecting — recheck and be more conservative.\n"
-            + "- If in doubt about a segment, do NOT mark it as an ad. "
-            + "Better to miss a marginal ad than to falsely skip podcast content.\n\n"
+            + "- When in doubt about a segment, DO mark it as an ad — false positives are acceptable. "
+            + "Listeners can undo, but a missed ad is a bad experience.\n\n"
             + "Return ONLY valid JSON: {\"ads\": [{\"startMs\": <int>, \"endMs\": <int>}, ...]}\n"
             + "If there are no ads return {\"ads\": []}.";
 

@@ -4,6 +4,7 @@ import android.content.Context;
 import android.media.AudioManager;
 import android.media.ToneGenerator;
 import android.util.Log;
+import androidx.annotation.VisibleForTesting;
 import de.danoeh.antennapod.net.download.serviceinterface.AdDetectionManager;
 import de.danoeh.antennapod.event.MessageEvent;
 import de.danoeh.antennapod.model.feed.FeedMedia;
@@ -26,6 +27,7 @@ public class AdSkipController {
     private static final String TAG = "AdSkipController";
     private static final long MAX_NATURAL_ADVANCE_MS = 3000;
     private static final long RELOAD_INTERVAL_MS = 60_000L;
+    private static final long RELOAD_INTERVAL_FAST_MS = 5_000L;
     private static final long START_THRESHOLD_MS = 5000L;
 
     public interface SeekCallback {
@@ -58,6 +60,11 @@ public class AdSkipController {
         furthestPositionMs = 0;
         skippedSegments.clear();
         suppressedSegments.clear();
+        lastLoadAttemptMs = 0;
+    }
+
+    @VisibleForTesting
+    void advanceReloadTimerForTest() {
         lastLoadAttemptMs = 0;
     }
 
@@ -106,7 +113,8 @@ public class AdSkipController {
 
         if ((adSegments == null || !processingComplete) && adTimestampsPath != null) {
             long now = System.currentTimeMillis();
-            if (now - lastLoadAttemptMs >= RELOAD_INTERVAL_MS) {
+            long interval = (adSegments == null) ? RELOAD_INTERVAL_FAST_MS : RELOAD_INTERVAL_MS;
+            if (now - lastLoadAttemptMs >= interval) {
                 lastLoadAttemptMs = now;
                 tryLoadAdSegments();
             }

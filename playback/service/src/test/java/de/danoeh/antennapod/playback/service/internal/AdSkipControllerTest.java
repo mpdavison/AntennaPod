@@ -192,4 +192,22 @@ public class AdSkipControllerTest {
 
         verify(seekCallback, times(2)).seekTo(30000L);
     }
+
+    @Test
+    public void reloadsQuicklyWhenFileAppears() throws Exception {
+        // Simulate worker still running: file doesn't exist yet when onMediaLoaded fires.
+        AdSkipController controller = createController();
+        controller.onMediaLoaded(media);
+        controller.checkPosition(0);
+        verify(seekCallback, never()).seekTo(anyLong());
+
+        // Worker finishes and writes the file. Advance the reload timer so the
+        // fast retry (5s) is past, then the next checkPosition should reload.
+        controller.advanceReloadTimerForTest();
+        writeTimestamps("complete", 0, 30000);
+
+        controller.checkPosition(1500);
+
+        verify(seekCallback).seekTo(30000L);
+    }
 }

@@ -8,6 +8,7 @@ import android.media.MediaFormat;
 import android.media.MediaMuxer;
 import android.util.Log;
 import androidx.annotation.NonNull;
+import androidx.annotation.VisibleForTesting;
 import android.content.pm.ServiceInfo;
 import androidx.core.app.NotificationCompat;
 import androidx.work.Data;
@@ -58,6 +59,34 @@ public class AdDetectionWorker extends Worker {
     private static final String DEFAULT_CLASSIFICATION_PROMPT =
             AdDetectionPreferences.DEFAULT_CLASSIFICATION_PROMPT;
 
+    private static final String DEFAULT_VALIDATION_PROMPT =
+            "You are an expert at detecting advertisements and sponsor reads in podcast transcripts. "
+            + "Your job is to REVIEW and CORRECT a first-pass ad detection result.\n\n"
+            + "You will receive:\n"
+            + "1. The full transcript with timestamps\n"
+            + "2. The first-pass ad segments that were already identified\n\n"
+            + "MISTAKES TO LOOK FOR:\n"
+            + "- Ads that were MISSED, especially in the first 3 minutes and last 3 minutes of the episode\n"
+            + "- Ad breaks that should be MERGED (separated by less than 2 minutes of content)\n"
+            + "- Ad start/end timestamps that are slightly off (off by one segment)\n\n"
+            + "SPECIAL ATTENTION — FIRST AND LAST 3 MINUTES:\n"
+            + "- If the transcript starts with ad-like content (sponsor mentions, brands, discount codes, "
+            + "calls to action, promotional language), the first ad segment MUST start at 0ms\n"
+            + "- The first 3 minutes and last 3 minutes are prime ad territory — check these EXTRA carefully\n"
+            + "- If you see ANY ad-like content NOT covered by the first-pass results, ADD it\n"
+            + "- Pre-roll ads (first few minutes) and post-roll ads (last few minutes) are extremely common\n\n"
+            + "RULES:\n"
+            + "- Favor false positives over false negatives. When unsure, mark it as an ad.\n"
+            + "- A single ad break uses the startMs of the FIRST segment and the endMs of the LAST segment\n"
+            + "- If two ad breaks are separated by 2 minutes or less of non-ad content, merge them\n"
+            + "- Return the CORRECTED and COMPLETE list of ad segments\n"
+            + "- If the first-pass results are already perfect, return them as-is\n\n"
+            + "IMPORTANT FORMAT NOTES:\n"
+            + "- The startMs and endMs values MUST be the actual millisecond timestamps shown in the transcript\n"
+            + "NOT the segment index numbers in brackets\n"
+            + "- If in doubt about a segment, DO mark it as an ad\n\n"
+            + "Return ONLY valid JSON: {\"ads\": [{\"startMs\": <int>, \"endMs\": <int>}, ...]}";
+
     private static class AudioChunk {
         final File file;
         final double offsetSeconds;
@@ -70,7 +99,8 @@ public class AdDetectionWorker extends Worker {
         }
     }
 
-    private static class Segment {
+    @VisibleForTesting
+    static class Segment {
         final long startMs;
         final long endMs;
         final String text;
@@ -191,7 +221,7 @@ public class AdDetectionWorker extends Worker {
             chunks = splitAudio(audioFile);
             Log.i(TAG, "Audio split into " + chunks.size() + " chunk(s)");
 
-            int totalSteps = chunks.size() + 1;
+            int totalSteps = chunks.size() + 2;
             int completedSteps = 0;
             reportProgress(feedMediaId, 1, totalSteps);
 
@@ -225,8 +255,15 @@ public class AdDetectionWorker extends Worker {
             String chatPrompt = AdDetectionPreferences.getChatPrompt();
             List<long[]> ads = classifyAds(allSegments, client,
                     chatApiKey, chatBaseUrl, chatModel, chatPrompt);
+            completedSteps++;
+            reportProgress(feedMediaId, completedSteps, totalSteps);
+
+            Log.i(TAG, "Validating ad segments with second pass");
+            ads = validateAds(allSegments, ads, client,
+                    chatApiKey, chatBaseUrl, chatModel, null);
             ads = mergeConsecutiveAds(ads);
-            reportProgress(feedMediaId, totalSteps, totalSteps);
+            completedSteps++;
+            reportProgress(feedMediaId, completedSteps, totalSteps);
 
             File outFile = AdDetectionManager.adTimestampsFileFor(getApplicationContext(), media);
             writeAdTimestamps(outFile, ads);
@@ -466,7 +503,8 @@ public class AdDetectionWorker extends Worker {
         return result;
     }
 
-    private List<long[]> classifyAds(List<Segment> segments, OkHttpClient client,
+    @VisibleForTesting
+    List<long[]> classifyAds(List<Segment> segments, OkHttpClient client,
             String apiKey, String baseUrl, String model, String customPrompt)
             throws IOException, JSONException {
         if (segments.isEmpty()) {
@@ -495,11 +533,22 @@ public class AdDetectionWorker extends Worker {
         JSONArray messages = new JSONArray();
         messages.put(systemMessage);
         messages.put(userMessage);
-        JSONObject body = new JSONObject();
-        body.put("model", model);
-        body.put("stream", false);
-        body.put("messages", messages);
 
+        String responseBody = callChatApi(client, apiKey, baseUrl, model, messages);
+        return parseAdSegments(responseBody);
+    }
+
+    @VisibleForTesting
+    protected String callChatApi(OkHttpClient client, String apiKey, String baseUrl,
+            String model, JSONArray messages) throws IOException {
+        JSONObject body = new JSONObject();
+        try {
+            body.put("model", model);
+            body.put("stream", false);
+            body.put("messages", messages);
+        } catch (JSONException e) {
+            throw new IOException("Failed to build request", e);
+        }
         Request request = new Request.Builder()
                 .url(baseUrl + "/chat/completions")
                 .header("Authorization", "Bearer " + apiKey)
@@ -510,16 +559,84 @@ public class AdDetectionWorker extends Worker {
             if (!response.isSuccessful()) {
                 throw new IOException("Chat API error: HTTP " + response.code() + " " + responseBody);
             }
-            return parseAdSegments(responseBody);
+            return responseBody;
         }
     }
 
-    private List<long[]> parseAdSegments(String json) throws JSONException {
+    @VisibleForTesting
+    List<long[]> validateAds(List<Segment> segments, List<long[]> firstPassAds,
+            OkHttpClient client, String apiKey, String baseUrl, String model,
+            String customValidationPrompt) {
+        if (segments.isEmpty()) {
+            return firstPassAds;
+        }
+        StringBuilder transcriptLines = new StringBuilder();
+        for (int i = 0; i < segments.size(); i++) {
+            Segment s = segments.get(i);
+            transcriptLines.append("[").append(i).append("] ")
+                    .append(s.startMs).append("-").append(s.endMs).append(": ")
+                    .append(s.text).append("\n");
+        }
+        StringBuilder firstPassStr = new StringBuilder();
+        if (firstPassAds.isEmpty()) {
+            firstPassStr.append("No ads detected in first pass.");
+        } else {
+            for (int i = 0; i < firstPassAds.size(); i++) {
+                firstPassStr.append("[").append(i).append("] ")
+                        .append(firstPassAds.get(i)[0]).append("ms-")
+                        .append(firstPassAds.get(i)[1]).append("ms\n");
+            }
+        }
+        String validationPrompt = (customValidationPrompt == null
+                || customValidationPrompt.isEmpty())
+                ? DEFAULT_VALIDATION_PROMPT : customValidationPrompt;
+
+        try {
+            JSONObject systemMessage = new JSONObject();
+            systemMessage.put("role", "system");
+            systemMessage.put("content", validationPrompt);
+
+            JSONObject userMessage = new JSONObject();
+            userMessage.put("role", "user");
+            userMessage.put("content",
+                    "Full transcript (format: [index] startMs-endMs: text):\n"
+                    + transcriptLines
+                    + "\nFirst-pass ad segments:\n"
+                    + firstPassStr
+                    + "\nRespond with ONLY the JSON object. "
+                    + "No explanation, no markdown, no other text.");
+
+            JSONArray messages = new JSONArray();
+            messages.put(systemMessage);
+            messages.put(userMessage);
+
+            String responseBody = callChatApi(client, apiKey, baseUrl, model, messages);
+            List<long[]> validated = parseAdSegments(responseBody);
+            Log.i(TAG, "Validation pass: " + firstPassAds.size()
+                    + " ad(s) before, " + validated.size() + " after");
+            return validated;
+        } catch (Exception e) {
+            Log.w(TAG, "Validation API call failed, keeping first-pass results: "
+                    + e.getMessage());
+            return firstPassAds;
+        }
+    }
+
+    @VisibleForTesting
+    List<long[]> parseAdSegments(String json) throws JSONException {
         JSONObject root = new JSONObject(json);
-        String content = root.getJSONArray("choices")
-                .getJSONObject(0)
-                .getJSONObject("message")
-                .getString("content");
+        JSONArray choices = root.optJSONArray("choices");
+        if (choices == null || choices.length() == 0) {
+            return Collections.emptyList();
+        }
+        JSONObject message = choices.getJSONObject(0).optJSONObject("message");
+        if (message == null) {
+            return Collections.emptyList();
+        }
+        String content = message.optString("content", "");
+        if (content.isEmpty()) {
+            return Collections.emptyList();
+        }
         int jsonStart = content.indexOf('{');
         int jsonEnd = content.lastIndexOf('}');
         if (jsonStart < 0 || jsonEnd <= jsonStart) {
@@ -540,7 +657,8 @@ public class AdDetectionWorker extends Worker {
         return ads;
     }
 
-    private List<long[]> mergeConsecutiveAds(List<long[]> ads) {
+    @VisibleForTesting
+    List<long[]> mergeConsecutiveAds(List<long[]> ads) {
         if (ads.isEmpty()) {
             return ads;
         }
