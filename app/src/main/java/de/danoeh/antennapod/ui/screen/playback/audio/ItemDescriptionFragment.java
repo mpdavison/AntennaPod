@@ -10,9 +10,12 @@ import android.view.LayoutInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.TextView;
 
 import androidx.fragment.app.Fragment;
+
+import java.util.List;
+
+import org.json.JSONObject;
 
 import de.danoeh.antennapod.R;
 import de.danoeh.antennapod.event.AdDetectionProgressEvent;
@@ -45,7 +48,6 @@ public class ItemDescriptionFragment extends Fragment {
     private static final String PREF_PLAYABLE_ID = "prefPlayableId";
 
     private ShownotesWebView webvDescription;
-    private TextView adSummaryText;
     private Disposable webViewLoader;
     private String loadedData = "";
 
@@ -54,7 +56,6 @@ public class ItemDescriptionFragment extends Fragment {
         Log.d(TAG, "Creating view");
         View root = inflater.inflate(R.layout.item_description_fragment, container, false);
         webvDescription = root.findViewById(R.id.webview);
-        adSummaryText = root.findViewById(R.id.adSummaryText);
         webvDescription.setTimecodeSelectedListener(time ->
                 PlaybackController.bindToService(getActivity(), playbackService ->
                         playbackService.seekTo(time)));
@@ -116,7 +117,11 @@ public class ItemDescriptionFragment extends Fragment {
             }
             ShownotesCleaner shownotesCleaner = new ShownotesCleaner(
                     context, media.getDescription(), media.getDuration());
-            emitter.onSuccess(shownotesCleaner.processShownotes());
+            String data = shownotesCleaner.processShownotes();
+            if (media instanceof FeedMedia) {
+                data = appendAdSummaryToData(context, (FeedMedia) media, data);
+            }
+            emitter.onSuccess(data);
         })
                 .subscribeOn(Schedulers.computation())
                 .observeOn(AndroidSchedulers.mainThread())
@@ -128,40 +133,60 @@ public class ItemDescriptionFragment extends Fragment {
                     webvDescription.loadDataWithBaseURL("https://127.0.0.1", data, "text/html",
                             "utf-8", "about:blank");
                     Log.d(TAG, "Webview loaded");
-                    updateAdSummary();
                 }, error -> Log.e(TAG, Log.getStackTraceString(error)));
     }
 
     private void updateAdSummary() {
         Context context = getContext();
-        if (context == null || adSummaryText == null) {
+        if (context == null) {
             return;
         }
         long mediaId = PlaybackPreferences.getCurrentlyPlayingFeedMediaId();
         if (mediaId <= 0) {
-            adSummaryText.setVisibility(View.GONE);
             return;
         }
-        int progress = AdDetectionManager.getProgress(mediaId);
+        FeedMedia media = DBReader.getFeedMedia(mediaId);
+        String summaryHtml = buildAdSummaryHtml(context, media);
+        String content = summaryHtml != null ? summaryHtml : "";
+        String escaped = JSONObject.quote(content);
+        webvDescription.evaluateJavascript(
+                "document.getElementById('adSummary').innerHTML = " + escaped + ";", null);
+    }
+
+    private static String appendAdSummaryToData(Context context, FeedMedia media, String data) {
+        String summaryHtml = buildAdSummaryHtml(context, media);
+        if (summaryHtml == null) {
+            return data;
+        }
+        return data.replace("</body>",
+                "<br><div id='adSummary'>" + summaryHtml + "</div></body>");
+    }
+
+    private static String buildAdSummaryHtml(Context context, FeedMedia media) {
+        int progress = AdDetectionManager.getProgress(media.getId());
         if (progress > 0 && progress < 100) {
-            adSummaryText.setText(R.string.ad_detection_summary_processing);
-            adSummaryText.setVisibility(View.VISIBLE);
-            return;
+            return context.getString(R.string.ad_detection_summary_processing);
         }
-        long[] summary = AdDetectionManager.getAdSummary(context,
-                DBReader.getFeedMedia(mediaId));
+        long[] summary = AdDetectionManager.getAdSummary(context, media);
         if (summary == null) {
-            adSummaryText.setVisibility(View.GONE);
-            return;
+            return null;
         }
         if (summary[0] == 0) {
-            adSummaryText.setText(R.string.ad_detection_summary_none);
-        } else {
-            String totalStr = Converter.getDurationStringLong((int) summary[1]);
-            adSummaryText.setText(getString(R.string.ad_detection_summary_ads,
-                    (int) summary[0], totalStr));
+            return context.getString(R.string.ad_detection_summary_none);
         }
-        adSummaryText.setVisibility(View.VISIBLE);
+        String totalStr = Converter.getDurationStringLong((int) summary[1]);
+        StringBuilder sb = new StringBuilder(
+                context.getString(R.string.ad_detection_summary_ads, (int) summary[0], totalStr));
+        List<long[]> segments = AdDetectionManager.getAdSegments(context, media);
+        if (segments != null) {
+            for (long[] seg : segments) {
+                sb.append("<br>&emsp;");
+                sb.append(Converter.getDurationStringLong((int) seg[0]));
+                sb.append(" – ");
+                sb.append(Converter.getDurationStringLong((int) seg[1]));
+            }
+        }
+        return sb.toString();
     }
 
     @Override

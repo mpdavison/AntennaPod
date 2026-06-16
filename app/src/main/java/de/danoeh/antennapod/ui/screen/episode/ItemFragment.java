@@ -70,8 +70,11 @@ import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+
+import org.json.JSONObject;
 
 /**
  * Displays information about a FeedItem and actions.
@@ -295,28 +298,13 @@ public class ItemFragment extends Fragment {
 
     private void updateAdSummary() {
         if (item == null || !item.hasMedia()) {
-            viewBinding.adSummaryText.setVisibility(View.GONE);
             return;
         }
-        int progress = AdDetectionManager.getProgress(item.getMedia().getId());
-        if (progress > 0 && progress < 100) {
-            viewBinding.adSummaryText.setText(R.string.ad_detection_summary_processing);
-            viewBinding.adSummaryText.setVisibility(View.VISIBLE);
-            return;
-        }
-        long[] summary = AdDetectionManager.getAdSummary(getContext(), item.getMedia());
-        if (summary == null) {
-            viewBinding.adSummaryText.setVisibility(View.GONE);
-            return;
-        }
-        if (summary[0] == 0) {
-            viewBinding.adSummaryText.setText(R.string.ad_detection_summary_none);
-        } else {
-            String totalStr = Converter.getDurationStringLong((int) summary[1]);
-            viewBinding.adSummaryText.setText(
-                    getString(R.string.ad_detection_summary_ads, (int) summary[0], totalStr));
-        }
-        viewBinding.adSummaryText.setVisibility(View.VISIBLE);
+        String summaryHtml = buildAdSummaryHtml(getContext(), item.getMedia());
+        String content = summaryHtml != null ? summaryHtml : "";
+        String escaped = JSONObject.quote(content);
+        viewBinding.webvDescription.evaluateJavascript(
+                "document.getElementById('adSummary').innerHTML = " + escaped + ";", null);
     }
 
     private void updateButtons() {
@@ -469,8 +457,48 @@ public class ItemFragment extends Fragment {
             DBReader.loadDescriptionOfFeedItem(feedItem);
             ShownotesCleaner t = new ShownotesCleaner(context, feedItem.getDescription(), duration);
             webviewData = t.processShownotes();
+            appendAdSummaryToWebviewData(context, feedItem);
         }
         return feedItem;
+    }
+
+    private void appendAdSummaryToWebviewData(Context context, FeedItem feedItem) {
+        if (feedItem.getMedia() == null || webviewData == null) {
+            return;
+        }
+        String summaryHtml = buildAdSummaryHtml(context, feedItem.getMedia());
+        if (summaryHtml == null) {
+            return;
+        }
+        webviewData = webviewData.replace("</body>",
+                "<br><div id='adSummary'>" + summaryHtml + "</div></body>");
+    }
+
+    private String buildAdSummaryHtml(Context context, FeedMedia media) {
+        int progress = AdDetectionManager.getProgress(media.getId());
+        if (progress > 0 && progress < 100) {
+            return getString(R.string.ad_detection_summary_processing);
+        }
+        long[] summary = AdDetectionManager.getAdSummary(context, media);
+        if (summary == null) {
+            return null;
+        }
+        if (summary[0] == 0) {
+            return getString(R.string.ad_detection_summary_none);
+        }
+        String totalStr = Converter.getDurationStringLong((int) summary[1]);
+        StringBuilder sb = new StringBuilder(
+                getString(R.string.ad_detection_summary_ads, (int) summary[0], totalStr));
+        List<long[]> segments = AdDetectionManager.getAdSegments(context, media);
+        if (segments != null) {
+            for (long[] seg : segments) {
+                sb.append("<br>&emsp;");
+                sb.append(Converter.getDurationStringLong((int) seg[0]));
+                sb.append(" – ");
+                sb.append(Converter.getDurationStringLong((int) seg[1]));
+            }
+        }
+        return sb.toString();
     }
 
 }

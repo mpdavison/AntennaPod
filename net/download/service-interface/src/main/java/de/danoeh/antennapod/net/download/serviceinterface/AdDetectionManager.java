@@ -6,6 +6,9 @@ import de.danoeh.antennapod.model.feed.FeedMedia;
 import java.io.File;
 import java.io.FileInputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -37,6 +40,18 @@ public abstract class AdDetectionManager {
     }
 
     public static long[] getAdSummary(Context context, FeedMedia media) {
+        List<long[]> segments = getAdSegments(context, media);
+        if (segments == null) {
+            return null;
+        }
+        long totalMs = 0;
+        for (long[] seg : segments) {
+            totalMs += seg[1] - seg[0];
+        }
+        return new long[]{segments.size(), totalMs};
+    }
+
+    public static List<long[]> getAdSegments(Context context, FeedMedia media) {
         File file = adTimestampsFileFor(context, media);
         if (!file.exists()) {
             return null;
@@ -51,15 +66,14 @@ public abstract class AdDetectionManager {
             }
             JSONArray ads = root.optJSONArray("ads");
             if (ads == null) {
-                return new long[]{0, 0};
+                return Collections.emptyList();
             }
-            long count = ads.length();
-            long totalMs = 0;
+            List<long[]> segments = new ArrayList<>();
             for (int i = 0; i < ads.length(); i++) {
                 JSONObject ad = ads.getJSONObject(i);
-                totalMs += ad.getLong("endMs") - ad.getLong("startMs");
+                segments.add(new long[]{ad.getLong("startMs"), ad.getLong("endMs")});
             }
-            return new long[]{count, totalMs};
+            return segments;
         } catch (Exception e) {
             return null;
         }
