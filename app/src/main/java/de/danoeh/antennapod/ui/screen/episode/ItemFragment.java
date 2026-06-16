@@ -300,7 +300,7 @@ public class ItemFragment extends Fragment {
         if (item == null || !item.hasMedia()) {
             return;
         }
-        String summaryHtml = buildAdSummaryHtml(getContext(), item.getMedia());
+        String summaryHtml = AdDetectionManager.buildAdSummaryHtml(getContext(), item.getMedia());
         String content = summaryHtml != null ? summaryHtml : "";
         String escaped = JSONObject.quote(content);
         viewBinding.webvDescription.evaluateJavascript(
@@ -466,39 +466,7 @@ public class ItemFragment extends Fragment {
         if (feedItem.getMedia() == null || webviewData == null) {
             return;
         }
-        String summaryHtml = buildAdSummaryHtml(context, feedItem.getMedia());
-        if (summaryHtml == null) {
-            return;
-        }
-        webviewData = webviewData.replace("</body>",
-                "<br><div id='adSummary'>" + summaryHtml + "</div></body>");
+        webviewData = AdDetectionManager.appendAdSummaryToWebviewData(
+                context, feedItem.getMedia(), webviewData);
     }
-
-    private String buildAdSummaryHtml(Context context, FeedMedia media) {
-        int progress = AdDetectionManager.getProgress(media.getId());
-        if (progress > 0 && progress < 100) {
-            return getString(R.string.ad_detection_summary_processing);
-        }
-        long[] summary = AdDetectionManager.getAdSummary(context, media);
-        if (summary == null) {
-            return null;
-        }
-        if (summary[0] == 0) {
-            return getString(R.string.ad_detection_summary_none);
-        }
-        String totalStr = Converter.getDurationStringLong((int) summary[1]);
-        StringBuilder sb = new StringBuilder(
-                getString(R.string.ad_detection_summary_ads, (int) summary[0], totalStr));
-        List<long[]> segments = AdDetectionManager.getAdSegments(context, media);
-        if (segments != null) {
-            for (long[] seg : segments) {
-                sb.append("<br>&emsp;");
-                sb.append(Converter.getDurationStringLong((int) seg[0]));
-                sb.append(" – ");
-                sb.append(Converter.getDurationStringLong((int) seg[1]));
-            }
-        }
-        return sb.toString();
-    }
-
 }

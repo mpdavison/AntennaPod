@@ -164,8 +164,6 @@ public class AdDetectionWorker extends Worker {
         if (!AdDetectionPreferences.isEnabled()) {
             return Result.success();
         }
-        setForegroundAsync(new ForegroundInfo(R.id.notification_ad_detection, createNotification(),
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC));
         long feedMediaId = getInputData().getLong(KEY_FEED_MEDIA_ID, -1);
         if (feedMediaId < 0) {
             return Result.failure();

@@ -17,6 +17,7 @@ dependencies {
     implementation project(':model')
     implementation project(':net:common')
     implementation project(':storage:preferences')
+    implementation project(':ui:i18n')
 
     annotationProcessor "androidx.annotation:annotation:$annotationVersion"
     implementation "org.apache.commons:commons-lang3:$commonslangVersion"

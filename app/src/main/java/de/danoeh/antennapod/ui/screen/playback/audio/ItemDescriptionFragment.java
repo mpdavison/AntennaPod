@@ -13,8 +13,6 @@ import android.view.ViewGroup;
 
 import androidx.fragment.app.Fragment;
 
-import java.util.List;
-
 import org.json.JSONObject;
 
 import de.danoeh.antennapod.R;
@@ -27,7 +25,6 @@ import de.danoeh.antennapod.storage.preferences.PlaybackPreferences;
 import de.danoeh.antennapod.ui.cleaner.ShownotesCleaner;
 import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.model.playback.Playable;
-import de.danoeh.antennapod.ui.common.Converter;
 import de.danoeh.antennapod.ui.view.ShownotesWebView;
 import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
@@ -146,7 +143,7 @@ public class ItemDescriptionFragment extends Fragment {
             return;
         }
         FeedMedia media = DBReader.getFeedMedia(mediaId);
-        String summaryHtml = buildAdSummaryHtml(context, media);
+        String summaryHtml = AdDetectionManager.buildAdSummaryHtml(context, media);
         String content = summaryHtml != null ? summaryHtml : "";
         String escaped = JSONObject.quote(content);
         webvDescription.evaluateJavascript(
@@ -154,39 +151,7 @@ public class ItemDescriptionFragment extends Fragment {
     }
 
     private static String appendAdSummaryToData(Context context, FeedMedia media, String data) {
-        String summaryHtml = buildAdSummaryHtml(context, media);
-        if (summaryHtml == null) {
-            return data;
-        }
-        return data.replace("</body>",
-                "<br><div id='adSummary'>" + summaryHtml + "</div></body>");
-    }
-
-    private static String buildAdSummaryHtml(Context context, FeedMedia media) {
-        int progress = AdDetectionManager.getProgress(media.getId());
-        if (progress > 0 && progress < 100) {
-            return context.getString(R.string.ad_detection_summary_processing);
-        }
-        long[] summary = AdDetectionManager.getAdSummary(context, media);
-        if (summary == null) {
-            return null;
-        }
-        if (summary[0] == 0) {
-            return context.getString(R.string.ad_detection_summary_none);
-        }
-        String totalStr = Converter.getDurationStringLong((int) summary[1]);
-        StringBuilder sb = new StringBuilder(
-                context.getString(R.string.ad_detection_summary_ads, (int) summary[0], totalStr));
-        List<long[]> segments = AdDetectionManager.getAdSegments(context, media);
-        if (segments != null) {
-            for (long[] seg : segments) {
-                sb.append("<br>&emsp;");
-                sb.append(Converter.getDurationStringLong((int) seg[0]));
-                sb.append(" – ");
-                sb.append(Converter.getDurationStringLong((int) seg[1]));
-            }
-        }
-        return sb.toString();
+        return AdDetectionManager.appendAdSummaryToWebviewData(context, media, data);
     }
 
     @Override

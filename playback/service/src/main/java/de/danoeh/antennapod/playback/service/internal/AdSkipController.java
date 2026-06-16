@@ -10,14 +10,11 @@ import de.danoeh.antennapod.event.MessageEvent;
 import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.playback.service.R;
 import org.greenrobot.eventbus.EventBus;
-import org.json.JSONArray;
-import org.json.JSONObject;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -45,6 +42,7 @@ public class AdSkipController {
     private final Set<Integer> skippedSegments = Collections.synchronizedSet(new HashSet<>());
     private final Set<Integer> suppressedSegments = Collections.synchronizedSet(new HashSet<>());
     private long lastLoadAttemptMs = 0;
+    private ToneGenerator toneGenerator;
 
     public AdSkipController(Context context, SeekCallback seekCallback) {
         this.context = context;
@@ -61,6 +59,10 @@ public class AdSkipController {
         skippedSegments.clear();
         suppressedSegments.clear();
         lastLoadAttemptMs = 0;
+        if (toneGenerator != null) {
+            toneGenerator.release();
+            toneGenerator = null;
+        }
     }
 
     @VisibleForTesting
@@ -158,6 +160,12 @@ public class AdSkipController {
             return;
         }
         try {
+            List<long[]> segs = AdDetectionManager.loadAdSegmentsFromFile(file);
+            if (segs == null) {
+                adSegments = null;
+                return;
+            }
+            adSegments = segs;
             StringBuilder sb = new StringBuilder();
             try (BufferedReader br = new BufferedReader(
                     new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8))) {
@@ -166,18 +174,7 @@ public class AdSkipController {
                     sb.append(line);
                 }
             }
-            JSONObject root = new JSONObject(sb.toString());
-            processingComplete = "complete".equals(root.optString("status"));
-            JSONArray arr = root.optJSONArray("ads");
-            if (arr == null) {
-                arr = new JSONArray();
-            }
-            List<long[]> segs = new ArrayList<>();
-            for (int i = 0; i < arr.length(); i++) {
-                JSONObject o = arr.getJSONObject(i);
-                segs.add(new long[]{o.getLong("startMs"), o.getLong("endMs")});
-            }
-            adSegments = segs;
+            processingComplete = sb.toString().contains("\"complete\"");
             Log.i(TAG, "Loaded " + segs.size() + " ad segment(s) from " + adTimestampsPath);
         } catch (Exception e) {
             Log.w(TAG, "Failed to load ad timestamps: " + e.getMessage());
@@ -186,8 +183,10 @@ public class AdSkipController {
 
     private void playBeep() {
         try {
-            ToneGenerator tone = new ToneGenerator(AudioManager.STREAM_MUSIC, 80);
-            tone.startTone(ToneGenerator.TONE_PROP_BEEP, 150);
+            if (toneGenerator == null) {
+                toneGenerator = new ToneGenerator(AudioManager.STREAM_MUSIC, 80);
+            }
+            toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP, 150);
         } catch (RuntimeException e) {
             Log.d(TAG, "Could not play skip beep: " + e.getMessage());
         }

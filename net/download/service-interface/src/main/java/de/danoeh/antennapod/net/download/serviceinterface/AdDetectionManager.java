@@ -3,8 +3,10 @@ package de.danoeh.antennapod.net.download.serviceinterface;
 import android.content.Context;
 import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -52,18 +54,41 @@ public abstract class AdDetectionManager {
     }
 
     public static List<long[]> getAdSegments(Context context, FeedMedia media) {
-        File file = adTimestampsFileFor(context, media);
-        if (!file.exists()) {
+        String content = readAdTimestampsContent(context, media);
+        if (content == null) {
             return null;
         }
-        try (FileInputStream fis = new FileInputStream(file)) {
-            byte[] buf = new byte[(int) Math.min(file.length(), 65536)];
-            int read = fis.read(buf);
-            String content = new String(buf, 0, Math.max(read, 0), StandardCharsets.UTF_8);
+        try {
             JSONObject root = new JSONObject(content);
             if (!"complete".equals(root.optString("status"))) {
                 return null;
             }
+            JSONArray ads = root.optJSONArray("ads");
+            if (ads == null) {
+                return Collections.emptyList();
+            }
+            List<long[]> segments = new ArrayList<>();
+            for (int i = 0; i < ads.length(); i++) {
+                JSONObject ad = ads.getJSONObject(i);
+                segments.add(new long[]{ad.getLong("startMs"), ad.getLong("endMs")});
+            }
+            return segments;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    public static List<long[]> loadAdSegments(Context context, FeedMedia media) {
+        return loadAdSegmentsFromFile(adTimestampsFileFor(context, media));
+    }
+
+    public static List<long[]> loadAdSegmentsFromFile(File file) {
+        String content = readFileContent(file);
+        if (content == null) {
+            return null;
+        }
+        try {
+            JSONObject root = new JSONObject(content);
             JSONArray ads = root.optJSONArray("ads");
             if (ads == null) {
                 return Collections.emptyList();
@@ -86,17 +111,76 @@ public abstract class AdDetectionManager {
     }
 
     public static boolean isAdDetectionComplete(Context context, FeedMedia media) {
-        File file = adTimestampsFileFor(context, media);
+        String content = readAdTimestampsContent(context, media);
+        return content != null && content.contains("\"complete\"");
+    }
+
+    private static String readAdTimestampsContent(Context context, FeedMedia media) {
+        return readFileContent(adTimestampsFileFor(context, media));
+    }
+
+    private static String readFileContent(File file) {
         if (!file.exists()) {
-            return false;
+            return null;
         }
-        try (FileInputStream fis = new FileInputStream(file)) {
-            byte[] buf = new byte[200];
-            int read = fis.read(buf, 0, buf.length);
-            String head = new String(buf, 0, Math.max(read, 0), StandardCharsets.UTF_8);
-            return head.contains("\"complete\"");
-        } catch (Exception e) {
-            return false;
+        try (FileInputStream fis = new FileInputStream(file);
+                ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+            byte[] buf = new byte[8192];
+            int read;
+            while ((read = fis.read(buf)) >= 0) {
+                baos.write(buf, 0, read);
+            }
+            return baos.toString(StandardCharsets.UTF_8.name());
+        } catch (IOException e) {
+            return null;
         }
+    }
+
+    public static String buildAdSummaryHtml(Context context, FeedMedia media) {
+        int progress = getProgress(media.getId());
+        if (progress > 0 && progress < 100) {
+            return context.getString(de.danoeh.antennapod.ui.i18n.R.string.ad_detection_summary_processing);
+        }
+        List<long[]> segments = getAdSegments(context, media);
+        if (segments == null) {
+            return null;
+        }
+        if (segments.isEmpty()) {
+            return context.getString(de.danoeh.antennapod.ui.i18n.R.string.ad_detection_summary_none);
+        }
+        long totalMs = 0;
+        for (long[] seg : segments) {
+            totalMs += seg[1] - seg[0];
+        }
+        String totalStr = formatDurationForSummary(totalMs);
+        StringBuilder sb = new StringBuilder(
+                context.getString(de.danoeh.antennapod.ui.i18n.R.string.ad_detection_summary_ads,
+                        segments.size(), totalStr));
+        for (long[] seg : segments) {
+            sb.append("<br>&emsp;");
+            sb.append(formatDurationForSummary(seg[0]));
+            sb.append(" – ");
+            sb.append(formatDurationForSummary(seg[1]));
+        }
+        return sb.toString();
+    }
+
+    public static String appendAdSummaryToWebviewData(Context context, FeedMedia media, String data) {
+        String summaryHtml = buildAdSummaryHtml(context, media);
+        if (summaryHtml == null) {
+            return data;
+        }
+        return data.replace("</body>",
+                "<br><br><div id='adSummary'>" + summaryHtml + "</div></body>");
+    }
+
+    private static String formatDurationForSummary(long ms) {
+        long seconds = ms / 1000;
+        long minutes = seconds / 60;
+        long hours = minutes / 60;
+        if (hours > 0) {
+            return String.format(java.util.Locale.US, "%d:%02d:%02d", hours, minutes % 60, seconds % 60);
+        }
+        return String.format(java.util.Locale.US, "%d:%02d", minutes, seconds % 60);
     }
 }
