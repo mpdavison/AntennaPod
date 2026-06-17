@@ -117,6 +117,9 @@ public abstract class AdDetectionPreferences {
     }
 
     public static boolean isEnabled() {
+        if (prefs == null) {
+            return false;
+        }
         return prefs.getBoolean(PREF_AD_DETECTION_ENABLED, false);
     }
 

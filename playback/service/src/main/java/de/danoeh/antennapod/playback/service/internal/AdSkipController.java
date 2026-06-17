@@ -7,8 +7,12 @@ import android.util.Log;
 import androidx.annotation.VisibleForTesting;
 import de.danoeh.antennapod.net.download.serviceinterface.AdDetectionManager;
 import de.danoeh.antennapod.event.MessageEvent;
+import de.danoeh.antennapod.model.feed.Feed;
+import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
+import de.danoeh.antennapod.model.feed.FeedPreferences;
 import de.danoeh.antennapod.playback.service.R;
+import de.danoeh.antennapod.storage.preferences.AdDetectionPreferences;
 import org.greenrobot.eventbus.EventBus;
 import java.io.BufferedReader;
 import java.io.File;
@@ -42,6 +46,7 @@ public class AdSkipController {
     private final Set<Integer> skippedSegments = Collections.synchronizedSet(new HashSet<>());
     private final Set<Integer> suppressedSegments = Collections.synchronizedSet(new HashSet<>());
     private long lastLoadAttemptMs = 0;
+    private boolean adSkippingDisabledForFeed = false;
     private ToneGenerator toneGenerator;
 
     public AdSkipController(Context context, SeekCallback seekCallback) {
@@ -59,6 +64,7 @@ public class AdSkipController {
         skippedSegments.clear();
         suppressedSegments.clear();
         lastLoadAttemptMs = 0;
+        adSkippingDisabledForFeed = false;
         if (toneGenerator != null) {
             toneGenerator.release();
             toneGenerator = null;
@@ -78,17 +84,31 @@ public class AdSkipController {
         processingComplete = false;
         currentMediaId = -1;
         furthestPositionMs = 0;
+        adSkippingDisabledForFeed = false;
         if (media != null && media.getDownloadUrl() != null) {
             currentMediaId = media.getId();
-            File tsFile = AdDetectionManager.adTimestampsFileFor(context, media);
-            adTimestampsPath = tsFile.getAbsolutePath();
-            tryLoadAdSegments();
+            FeedItem item = media.getItem();
+            if (item != null) {
+                Feed feed = item.getFeed();
+                if (feed != null && feed.getPreferences() != null) {
+                    adSkippingDisabledForFeed = !feed.getPreferences()
+                            .isAdDetectionEnabled(AdDetectionPreferences.isEnabled());
+                }
+            }
+            if (!adSkippingDisabledForFeed) {
+                File tsFile = AdDetectionManager.adTimestampsFileFor(context, media);
+                adTimestampsPath = tsFile.getAbsolutePath();
+                tryLoadAdSegments();
+            }
         } else {
             adTimestampsPath = null;
         }
     }
 
     public void checkPosition(long positionMs) {
+        if (adSkippingDisabledForFeed) {
+            return;
+        }
         if (positionMs < 0) {
             lastObservedPositionMs = positionMs;
             return;

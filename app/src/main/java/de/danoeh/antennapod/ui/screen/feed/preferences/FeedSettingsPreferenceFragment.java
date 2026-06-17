@@ -33,6 +33,7 @@ import de.danoeh.antennapod.model.feed.VolumeAdaptionSetting;
 import de.danoeh.antennapod.net.download.serviceinterface.FeedUpdateManager;
 import de.danoeh.antennapod.storage.database.DBReader;
 import de.danoeh.antennapod.storage.database.DBWriter;
+import de.danoeh.antennapod.storage.preferences.AdDetectionPreferences;
 import de.danoeh.antennapod.storage.preferences.UserPreferences;
 import de.danoeh.antennapod.ui.preferences.screen.synchronization.AuthenticationDialog;
 import de.danoeh.antennapod.ui.screen.feed.RenameFeedDialog;
@@ -61,6 +62,7 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
     private static final String PREF_AUTO_SKIP = "feedAutoSkip";
     private static final String PREF_NOTIFICATION = "episodeNotification";
     private static final String PREF_RENAME = "rename";
+    private static final String PREF_AD_DETECTION = "feedAdDetection";
     private static final String PREF_TAGS = "tags";
 
     private Feed feed;
@@ -129,6 +131,7 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
                     updateAutoDeleteSummary();
                     updateAutoDownloadEnabledSummary();
                     updateNewEpisodesActionSummary();
+                    updateAdDetectionSummary();
 
                     if (feed.isLocalFeed()) {
                         findPreference(PREF_AUTHENTICATION).setVisible(false);
@@ -246,6 +249,13 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
             updateNewEpisodesActionSummary();
             return false;
         });
+        findPreference(PREF_AD_DETECTION).setOnPreferenceChangeListener((preference, newValue) -> {
+            feedPreferences.setAdDetectionSetting(
+                    FeedPreferences.AdDetectionSetting.fromCode(Integer.parseInt((String) newValue)));
+            DBWriter.setFeedPreferences(feedPreferences);
+            updateAdDetectionSummary();
+            return false;
+        });
         findPreference(PREF_TAGS).setOnPreferenceClickListener(preference -> {
             TagSettingsDialog.newInstance(Collections.singletonList(feedPreferences))
                     .show(getChildFragmentManager(), TagSettingsDialog.TAG);
@@ -327,6 +337,22 @@ public class FeedSettingsPreferenceFragment extends PreferenceFragmentCompat {
         };
         autoDownloadPreference.setSummary(summary);
         autoDownloadPreference.setValue("" + feedPreferences.getAutoDownload().code);
+    }
+
+    private void updateAdDetectionSummary() {
+        if (feed == null || feed.getPreferences() == null) {
+            return;
+        }
+        boolean globalEnabled = AdDetectionPreferences.isEnabled();
+        ListPreference adDetectionPreference = findPreference(PREF_AD_DETECTION);
+        int globalStringResource = globalEnabled ? R.string.enabled : R.string.disabled;
+        String summary = switch (feedPreferences.getAdDetectionSetting()) {
+            case GLOBAL -> getString(R.string.global_default_with_value, getString(globalStringResource));
+            case ENABLED -> getString(R.string.enabled);
+            case DISABLED -> getString(R.string.disabled);
+        };
+        adDetectionPreference.setSummary(summary);
+        adDetectionPreference.setValue("" + feedPreferences.getAdDetectionSetting().code);
     }
 
     private boolean showPlaybackSpeedDialog(Preference preference) {

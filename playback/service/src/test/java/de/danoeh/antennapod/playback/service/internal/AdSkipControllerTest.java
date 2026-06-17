@@ -1,7 +1,10 @@
 package de.danoeh.antennapod.playback.service.internal;
 
 import android.content.Context;
+import de.danoeh.antennapod.model.feed.Feed;
+import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
+import de.danoeh.antennapod.model.feed.FeedPreferences;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -209,5 +212,78 @@ public class AdSkipControllerTest {
         controller.checkPosition(1500);
 
         verify(seekCallback).seekTo(30000L);
+    }
+
+    @Test
+    public void noSkipWhenPerFeedAdDetectionDisabled() throws Exception {
+        writeTimestamps("complete", 30000, 60000);
+        FeedItem item = mock(FeedItem.class);
+        Feed feed = mock(Feed.class);
+        FeedPreferences prefs = mock(FeedPreferences.class);
+        when(media.getItem()).thenReturn(item);
+        when(item.getFeed()).thenReturn(feed);
+        when(feed.getPreferences()).thenReturn(prefs);
+        when(prefs.isAdDetectionEnabled(false)).thenReturn(false);
+        when(prefs.getAdDetectionSetting()).thenReturn(FeedPreferences.AdDetectionSetting.DISABLED);
+
+        AdSkipController controller = createController();
+        controller.onMediaLoaded(media);
+
+        controller.checkPosition(35000);
+
+        verify(seekCallback, never()).seekTo(anyLong());
+    }
+
+    @Test
+    public void skipWhenPerFeedAdDetectionEnabled() throws Exception {
+        writeTimestamps("complete", 30000, 60000);
+        FeedItem item = mock(FeedItem.class);
+        Feed feed = mock(Feed.class);
+        FeedPreferences prefs = mock(FeedPreferences.class);
+        when(media.getItem()).thenReturn(item);
+        when(item.getFeed()).thenReturn(feed);
+        when(feed.getPreferences()).thenReturn(prefs);
+        when(prefs.isAdDetectionEnabled(false)).thenReturn(true);
+        when(prefs.getAdDetectionSetting()).thenReturn(FeedPreferences.AdDetectionSetting.ENABLED);
+
+        AdSkipController controller = createController();
+        controller.onMediaLoaded(media);
+
+        controller.checkPosition(35000);
+
+        verify(seekCallback).seekTo(60000L);
+    }
+
+    @Test
+    public void noSkipWhenPerFeedAdDetectionGlobalAndGloballyDisabled() throws Exception {
+        writeTimestamps("complete", 30000, 60000);
+        FeedItem item = mock(FeedItem.class);
+        Feed feed = mock(Feed.class);
+        FeedPreferences prefs = mock(FeedPreferences.class);
+        when(media.getItem()).thenReturn(item);
+        when(item.getFeed()).thenReturn(feed);
+        when(feed.getPreferences()).thenReturn(prefs);
+        when(prefs.isAdDetectionEnabled(false)).thenReturn(false);
+        when(prefs.getAdDetectionSetting()).thenReturn(FeedPreferences.AdDetectionSetting.GLOBAL);
+
+        AdSkipController controller = createController();
+        controller.onMediaLoaded(media);
+
+        controller.checkPosition(35000);
+
+        verify(seekCallback, never()).seekTo(anyLong());
+    }
+
+    @Test
+    public void skipWhenFeedItemIsNull() throws Exception {
+        writeTimestamps("complete", 30000, 60000);
+        when(media.getItem()).thenReturn(null);
+
+        AdSkipController controller = createController();
+        controller.onMediaLoaded(media);
+
+        controller.checkPosition(35000);
+
+        verify(seekCallback).seekTo(60000L);
     }
 }

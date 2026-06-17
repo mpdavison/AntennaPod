@@ -25,7 +25,10 @@ import de.danoeh.antennapod.net.download.service.R;
 import org.greenrobot.eventbus.EventBus;
 import de.danoeh.antennapod.ui.notifications.NotificationUtils;
 import de.danoeh.antennapod.net.download.serviceinterface.AdDetectionManager;
+import de.danoeh.antennapod.model.feed.Feed;
+import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
+import de.danoeh.antennapod.model.feed.FeedPreferences;
 import de.danoeh.antennapod.storage.database.DBReader;
 import de.danoeh.antennapod.storage.preferences.AdDetectionPreferences;
 import okhttp3.MediaType;
@@ -120,6 +123,9 @@ public class AdDetectionWorker extends Worker {
         if (!AdDetectionPreferences.isEnabled()) {
             return;
         }
+        if (!isAdDetectionEnabledForFeed(context, feedMediaId)) {
+            return;
+        }
         Data inputData = new Data.Builder()
                 .putLong(KEY_FEED_MEDIA_ID, feedMediaId)
                 .build();
@@ -162,6 +168,10 @@ public class AdDetectionWorker extends Worker {
     @Override
     public Result doWork() {
         if (!AdDetectionPreferences.isEnabled()) {
+            return Result.success();
+        }
+        if (!isAdDetectionEnabledForFeed(getApplicationContext(),
+                getInputData().getLong(KEY_FEED_MEDIA_ID, -1))) {
             return Result.success();
         }
         long feedMediaId = getInputData().getLong(KEY_FEED_MEDIA_ID, -1);
@@ -281,6 +291,30 @@ public class AdDetectionWorker extends Worker {
             }
         }
         return Result.success();
+    }
+
+    @VisibleForTesting
+    static boolean isAdDetectionEnabledForFeed(Context context, long feedMediaId) {
+        if (feedMediaId < 0) {
+            return true;
+        }
+        FeedMedia media = DBReader.getFeedMedia(feedMediaId);
+        if (media == null) {
+            return true;
+        }
+        FeedItem item = media.getItem();
+        if (item == null) {
+            return true;
+        }
+        Feed feed = item.getFeed();
+        if (feed == null) {
+            return true;
+        }
+        FeedPreferences prefs = feed.getPreferences();
+        if (prefs == null) {
+            return true;
+        }
+        return prefs.isAdDetectionEnabled(AdDetectionPreferences.isEnabled());
     }
 
     private void downloadFile(OkHttpClient client, String url, File dest) throws IOException {

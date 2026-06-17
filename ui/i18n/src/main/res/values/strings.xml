@@ -565,6 +565,7 @@
     <string name="ad_settings_export_summary">Save ad detection settings and provider profiles to a file</string>
     <string name="ad_settings_import_label">Import ad detection settings</string>
     <string name="ad_settings_import_summary">Restore ad detection settings and provider profiles from a file</string>
+    <string name="feed_ad_detection_label">Ad detection</string>
     <string name="pref_ad_detection_enabled_title">Enable ad detection</string>
     <string name="pref_ad_detection_enabled_sum">Detect and skip ads in downloaded episodes</string>
     <string name="ad_detection_summary_processing">Ad detection in progress\u2026</string>
