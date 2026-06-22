@@ -14,6 +14,7 @@ import java.io.File;
 import java.io.FileWriter;
 
 import static org.junit.Assert.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
@@ -38,6 +39,7 @@ public class AdSkipControllerTest {
         seekCallback = mock(AdSkipController.SeekCallback.class);
         context = mock(Context.class);
         when(context.getString(anyInt())).thenReturn("");
+        when(context.getString(anyInt(), any())).thenReturn("");
         when(context.getCacheDir()).thenReturn(tempFolder.getRoot());
 
         mediaFile = tempFolder.newFile("episode.mp3");
