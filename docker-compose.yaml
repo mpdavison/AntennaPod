@@ -4,6 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile.aider
     volumes:
+      - ./home:/root
       - .:/workspace
       - gradle-cache:/root/.gradle
     working_dir: /workspace

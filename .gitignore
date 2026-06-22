@@ -19,6 +19,7 @@ build.xml
 gen-external-apklibs
 out
 contributers.py
+home
 captures
 *.odg#
 proguard
