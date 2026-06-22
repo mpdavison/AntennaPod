@@ -154,10 +154,12 @@ public class AdSkipController {
                     long skippedFrom = positionMs;
                     final int segIdx = i;
                     final long skipTo = seg[1];
+                    long durationMs = skipTo - seg[0];
+                    String durationStr = formatDuration(durationMs);
                     Log.d(TAG, "Ad skip: jumping from " + positionMs + " to " + skipTo);
                     playBeep();
                     EventBus.getDefault().post(new MessageEvent(
-                            context.getString(R.string.ad_skip_toast),
+                            context.getString(R.string.ad_skip_toast, durationStr),
                             ctx -> {
                                 suppressedSegments.add(segIdx);
                                 seekCallback.seekTo(skippedFrom);
@@ -199,6 +201,17 @@ public class AdSkipController {
         } catch (Exception e) {
             Log.w(TAG, "Failed to load ad timestamps: " + e.getMessage());
         }
+    }
+
+    private static String formatDuration(long ms) {
+        long totalSeconds = ms / 1000;
+        long hours = totalSeconds / 3600;
+        long minutes = (totalSeconds % 3600) / 60;
+        long seconds = totalSeconds % 60;
+        if (hours > 0) {
+            return String.format(java.util.Locale.US, "%d:%02d:%02d", hours, minutes, seconds);
+        }
+        return String.format(java.util.Locale.US, "%d:%02d", minutes, seconds);
     }
 
     private void playBeep() {
