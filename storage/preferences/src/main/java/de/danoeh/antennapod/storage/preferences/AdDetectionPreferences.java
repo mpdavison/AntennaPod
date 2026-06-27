@@ -13,6 +13,7 @@ import java.util.UUID;
 
 public abstract class AdDetectionPreferences {
     public static final String PREF_AD_DETECTION_ENABLED = "prefAdDetectionEnabled";
+    public static final String PREF_AD_MARTYR_ENABLED = "prefAdMartyrEnabled";
     public static final String PREF_AD_TRANSCRIPTION_PROFILES = "prefAdTranscriptionProfiles";
     public static final String PREF_AD_TRANSCRIPTION_ACTIVE_ID = "prefAdTranscriptionActiveId";
     public static final String PREF_AD_CHAT_PROFILES = "prefAdChatProfiles";
@@ -88,13 +89,16 @@ public abstract class AdDetectionPreferences {
         if (!prefs.contains(PREF_AD_DETECTION_ENABLED)) {
             prefs.edit().putBoolean(PREF_AD_DETECTION_ENABLED, false).apply();
         }
+        if (!prefs.contains(PREF_AD_MARTYR_ENABLED)) {
+            prefs.edit().putBoolean(PREF_AD_MARTYR_ENABLED, false).apply();
+        }
 
         AdProviderProfile transcriptionProfile = new AdProviderProfile();
         transcriptionProfile.id = UUID.randomUUID().toString();
         transcriptionProfile.name = "Local Whisper";
         transcriptionProfile.type = AdProviderProfile.TYPE_CUSTOM;
         transcriptionProfile.apiKey = "not-needed-locally";
-        transcriptionProfile.baseUrl = "http://192.168.2.58:8001/v1";
+        transcriptionProfile.baseUrl = "https://wspr.1681248.com/v1";
         transcriptionProfile.model = "deepdml/faster-whisper-large-v3-turbo-ct2";
 
         AdProviderProfile chatProfile = new AdProviderProfile();
@@ -121,6 +125,13 @@ public abstract class AdDetectionPreferences {
             return false;
         }
         return prefs.getBoolean(PREF_AD_DETECTION_ENABLED, false);
+    }
+
+    public static boolean isAdMartyrEnabled() {
+        if (prefs == null) {
+            return false;
+        }
+        return prefs.getBoolean(PREF_AD_MARTYR_ENABLED, false);
     }
 
     public static List<AdProviderProfile> getProfiles(int role) {

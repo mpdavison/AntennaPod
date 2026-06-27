@@ -367,7 +367,7 @@ public class Media3PlaybackService extends MediaLibraryService {
                             long position = player.getCurrentPosition();
                             long duration = player.getDuration();
                             float speed = player.getPlaybackParameters().speed;
-                            adSkipController.checkPosition(position);
+                            adSkipController.checkPosition(position, duration);
                             if (duration > 0) {
                                 EventBus.getDefault().post(
                                         new PlaybackPositionEvent((int) position, (int) duration));

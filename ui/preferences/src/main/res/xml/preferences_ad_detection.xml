@@ -8,6 +8,13 @@
             android:summary="@string/pref_ad_detection_enabled_sum"
             android:defaultValue="false"/>
 
+    <SwitchPreferenceCompat
+            android:key="prefAdMartyrEnabled"
+            android:title="@string/pref_ad_martyr_enabled_title"
+            android:summary="@string/pref_ad_martyr_enabled_sum"
+            android:dependency="prefAdDetectionEnabled"
+            android:defaultValue="false"/>
+
     <PreferenceCategory
             android:key="prefAdTranscriptionCategory"
             android:title="@string/pref_ad_transcription_category">

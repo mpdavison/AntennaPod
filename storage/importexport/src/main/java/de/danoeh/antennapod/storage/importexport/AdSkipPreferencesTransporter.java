@@ -32,7 +32,8 @@ public class AdSkipPreferencesTransporter {
     };
 
     private static final String[] BOOLEAN_KEYS = {
-            AdDetectionPreferences.PREF_AD_DETECTION_ENABLED
+            AdDetectionPreferences.PREF_AD_DETECTION_ENABLED,
+            AdDetectionPreferences.PREF_AD_MARTYR_ENABLED
     };
 
     public static void writeDocument(Writer writer, Context context) throws IOException {

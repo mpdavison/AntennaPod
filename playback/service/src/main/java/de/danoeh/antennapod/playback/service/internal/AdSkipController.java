@@ -19,6 +19,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -30,6 +31,7 @@ public class AdSkipController {
     private static final long RELOAD_INTERVAL_MS = 60_000L;
     private static final long RELOAD_INTERVAL_FAST_MS = 5_000L;
     private static final long START_THRESHOLD_MS = 5000L;
+    private static final long END_THRESHOLD_MS = 3000L;
 
     public interface SeekCallback {
         void seekTo(long positionMs);
@@ -47,6 +49,10 @@ public class AdSkipController {
     private final Set<Integer> suppressedSegments = Collections.synchronizedSet(new HashSet<>());
     private long lastLoadAttemptMs = 0;
     private boolean adSkippingDisabledForFeed = false;
+    private boolean adMartyrEnabled = false;
+    private List<long[]> pendingAdSegments = new ArrayList<>();
+    private boolean isPlayingAdMartyr = false;
+    private int currentMartyrSegmentIndex = -1;
     private ToneGenerator toneGenerator;
 
     public AdSkipController(Context context, SeekCallback seekCallback) {
@@ -65,6 +71,10 @@ public class AdSkipController {
         suppressedSegments.clear();
         lastLoadAttemptMs = 0;
         adSkippingDisabledForFeed = false;
+        adMartyrEnabled = false;
+        pendingAdSegments.clear();
+        isPlayingAdMartyr = false;
+        currentMartyrSegmentIndex = -1;
         if (toneGenerator != null) {
             toneGenerator.release();
             toneGenerator = null;
@@ -76,6 +86,19 @@ public class AdSkipController {
         lastLoadAttemptMs = 0;
     }
 
+    @VisibleForTesting
+    void setAdMartyrEnabledForTest(boolean enabled) {
+        adMartyrEnabled = enabled;
+        if (enabled && adSegments != null) {
+            pendingAdSegments.clear();
+            for (long[] seg : adSegments) {
+                pendingAdSegments.add(new long[]{seg[0], seg[1]});
+            }
+        } else {
+            pendingAdSegments.clear();
+        }
+    }
+
     public void onMediaLoaded(FeedMedia media) {
         skippedSegments.clear();
         suppressedSegments.clear();
@@ -85,6 +108,10 @@ public class AdSkipController {
         currentMediaId = -1;
         furthestPositionMs = 0;
         adSkippingDisabledForFeed = false;
+        adMartyrEnabled = false;
+        pendingAdSegments.clear();
+        isPlayingAdMartyr = false;
+        currentMartyrSegmentIndex = -1;
         if (media != null && media.getDownloadUrl() != null) {
             currentMediaId = media.getId();
             FeedItem item = media.getItem();
@@ -99,6 +126,13 @@ public class AdSkipController {
                 File tsFile = AdDetectionManager.adTimestampsFileFor(context, media);
                 adTimestampsPath = tsFile.getAbsolutePath();
                 tryLoadAdSegments();
+                adMartyrEnabled = AdDetectionPreferences.isAdMartyrEnabled();
+                if (adMartyrEnabled && adSegments != null) {
+                    pendingAdSegments.clear();
+                    for (long[] seg : adSegments) {
+                        pendingAdSegments.add(new long[]{seg[0], seg[1]});
+                    }
+                }
             }
         } else {
             adTimestampsPath = null;
@@ -106,6 +140,10 @@ public class AdSkipController {
     }
 
     public void checkPosition(long positionMs) {
+        checkPosition(positionMs, -1);
+    }
+
+    public void checkPosition(long positionMs, long durationMs) {
         if (adSkippingDisabledForFeed) {
             return;
         }
@@ -113,6 +151,13 @@ public class AdSkipController {
             lastObservedPositionMs = positionMs;
             return;
         }
+
+        if (adMartyrEnabled && isPlayingAdMartyr) {
+            lastObservedPositionMs = positionMs;
+            handleMartyrPlayback(positionMs, durationMs);
+            return;
+        }
+
         long prevPositionMs = lastObservedPositionMs;
         long delta = prevPositionMs < 0 ? 0 : positionMs - prevPositionMs;
         lastObservedPositionMs = positionMs;
@@ -146,29 +191,59 @@ public class AdSkipController {
             return;
         }
 
+        if (adMartyrEnabled && !pendingAdSegments.isEmpty()
+                && durationMs > 0 && positionMs >= durationMs - END_THRESHOLD_MS) {
+            isPlayingAdMartyr = true;
+            currentMartyrSegmentIndex = 0;
+            seekCallback.seekTo(pendingAdSegments.get(0)[0]);
+            return;
+        }
+
         for (int i = 0; i < adSegments.size(); i++) {
             long[] seg = adSegments.get(i);
             if (positionMs >= seg[0] && positionMs < seg[1]) {
                 if (!skippedSegments.contains(i) && !suppressedSegments.contains(i)) {
                     skippedSegments.add(i);
-                    long skippedFrom = positionMs;
-                    final int segIdx = i;
                     final long skipTo = seg[1];
-                    long durationMs = skipTo - seg[0];
-                    String durationStr = formatDuration(durationMs);
                     Log.d(TAG, "Ad skip: jumping from " + positionMs + " to " + skipTo);
                     playBeep();
-                    EventBus.getDefault().post(new MessageEvent(
-                            context.getString(R.string.ad_skip_toast, durationStr),
-                            ctx -> {
-                                suppressedSegments.add(segIdx);
-                                seekCallback.seekTo(skippedFrom);
-                            },
-                            context.getString(R.string.undo)));
+                    if (!adMartyrEnabled) {
+                        long skippedFrom = positionMs;
+                        final int segIdx = i;
+                        long adDurationMs = skipTo - seg[0];
+                        String durationStr = formatDuration(adDurationMs);
+                        EventBus.getDefault().post(new MessageEvent(
+                                context.getString(R.string.ad_skip_toast, durationStr),
+                                ctx -> {
+                                    suppressedSegments.add(segIdx);
+                                    seekCallback.seekTo(skippedFrom);
+                                },
+                                context.getString(R.string.undo)));
+                    }
                     seekCallback.seekTo(skipTo);
                 }
                 break;
             }
+        }
+    }
+
+    private void handleMartyrPlayback(long positionMs, long durationMs) {
+        for (int i = currentMartyrSegmentIndex; i < pendingAdSegments.size(); i++) {
+            long[] seg = pendingAdSegments.get(i);
+            if (positionMs >= seg[0] && positionMs < seg[1]) {
+                currentMartyrSegmentIndex = i;
+                return;
+            }
+            if (positionMs < seg[0]) {
+                currentMartyrSegmentIndex = i;
+                seekCallback.seekTo(seg[0]);
+                return;
+            }
+            currentMartyrSegmentIndex = i + 1;
+        }
+        isPlayingAdMartyr = false;
+        if (durationMs > 0) {
+            seekCallback.seekTo(durationMs);
         }
     }
 

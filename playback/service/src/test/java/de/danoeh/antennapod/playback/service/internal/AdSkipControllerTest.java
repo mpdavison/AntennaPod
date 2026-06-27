@@ -288,4 +288,123 @@ public class AdSkipControllerTest {
 
         verify(seekCallback).seekTo(60000L);
     }
+
+    // --- Ad Martyr tests ---
+
+    @Test
+    public void skipsAdInAdMartyrMode() throws Exception {
+        writeTimestamps("complete", 30000, 60000);
+        AdSkipController controller = createController();
+        controller.onMediaLoaded(media);
+        controller.setAdMartyrEnabledForTest(true);
+
+        controller.checkPosition(35000, 300000);
+
+        verify(seekCallback).seekTo(60000L);
+    }
+
+    @Test
+    public void entersMartyrModeNearEnd() throws Exception {
+        writeTimestamps("complete", 30000, 60000);
+        AdSkipController controller = createController();
+        controller.onMediaLoaded(media);
+        controller.setAdMartyrEnabledForTest(true);
+
+        controller.checkPosition(298000, 300000);
+
+        verify(seekCallback).seekTo(30000L);
+    }
+
+    @Test
+    public void playsAdSegmentsSequentiallyInMartyrMode() throws Exception {
+        writeTimestamps("complete", 10000, 20000, 50000, 70000);
+        AdSkipController controller = createController();
+        controller.onMediaLoaded(media);
+        controller.setAdMartyrEnabledForTest(true);
+
+        controller.checkPosition(298000, 300000);
+        verify(seekCallback).seekTo(10000L);
+
+        controller.checkPosition(10000, 300000);
+        controller.checkPosition(15000, 300000);
+        controller.checkPosition(20000, 300000);
+        verify(seekCallback).seekTo(50000L);
+
+        controller.checkPosition(50000, 300000);
+        controller.checkPosition(60000, 300000);
+        controller.checkPosition(70000, 300000);
+        verify(seekCallback).seekTo(300000L);
+    }
+
+    @Test
+    public void noSkipInMartyrPlaybackMode() throws Exception {
+        writeTimestamps("complete", 30000, 60000);
+        AdSkipController controller = createController();
+        controller.onMediaLoaded(media);
+        controller.setAdMartyrEnabledForTest(true);
+
+        controller.checkPosition(298000, 300000);
+        verify(seekCallback).seekTo(30000L);
+
+        controller.checkPosition(30000, 300000);
+
+        // Should NOT skip past the ad — should let it play in martyr mode
+        verify(seekCallback, never()).seekTo(60000L);
+    }
+
+    @Test
+    public void suppressesToastInAdMartyrMode() throws Exception {
+        writeTimestamps("complete", 30000, 60000);
+        AdSkipController controller = createController();
+        controller.onMediaLoaded(media);
+        controller.setAdMartyrEnabledForTest(true);
+
+        controller.checkPosition(35000, 300000);
+
+        // Toast uses getString(resId, formatArg) — should not be called in martyr mode
+        verify(context, never()).getString(anyInt(), any());
+    }
+
+    @Test
+    public void resetClearsAdMartyrState() throws Exception {
+        writeTimestamps("complete", 30000, 60000);
+        AdSkipController controller = createController();
+        controller.onMediaLoaded(media);
+        controller.setAdMartyrEnabledForTest(true);
+
+        controller.checkPosition(298000, 300000);
+        verify(seekCallback).seekTo(30000L);
+
+        controller.onReset();
+        controller.onMediaLoaded(media);
+        controller.setAdMartyrEnabledForTest(true);
+
+        controller.checkPosition(298000, 300000);
+        verify(seekCallback, times(2)).seekTo(30000L);
+    }
+
+    @Test
+    public void doesNotEnterMartyrModeWithEmptyPendingSegments() throws Exception {
+        // No timestamps file → no ad segments → pendingAdSegments stays empty
+        AdSkipController controller = createController();
+        controller.onMediaLoaded(media);
+        controller.setAdMartyrEnabledForTest(true);
+
+        controller.checkPosition(298000, 300000);
+
+        verify(seekCallback, never()).seekTo(anyLong());
+    }
+
+    @Test
+    public void doesNotEnterMartyrModeWithInvalidDuration() throws Exception {
+        writeTimestamps("complete", 30000, 60000);
+        AdSkipController controller = createController();
+        controller.onMediaLoaded(media);
+        controller.setAdMartyrEnabledForTest(true);
+
+        controller.checkPosition(298000, 0);
+        controller.checkPosition(298000, -1);
+
+        verify(seekCallback, never()).seekTo(anyLong());
+    }
 }
