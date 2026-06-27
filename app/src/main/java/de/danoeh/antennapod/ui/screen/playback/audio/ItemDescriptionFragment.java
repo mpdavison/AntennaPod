@@ -47,6 +47,7 @@ public class ItemDescriptionFragment extends Fragment {
     private ShownotesWebView webvDescription;
     private Disposable webViewLoader;
     private String loadedData = "";
+    private int webViewLoaderGeneration = 0;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -99,6 +100,8 @@ public class ItemDescriptionFragment extends Fragment {
         if (context == null) {
             return;
         }
+        webViewLoaderGeneration++;
+        final int generation = webViewLoaderGeneration;
         webViewLoader = Maybe.<String>create(emitter -> {
             Playable media = DBReader.getFeedMedia(PlaybackPreferences.getCurrentlyPlayingFeedMediaId());
             if (media == null) {
@@ -123,6 +126,9 @@ public class ItemDescriptionFragment extends Fragment {
                 .subscribeOn(Schedulers.computation())
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(data -> {
+                    if (generation != webViewLoaderGeneration) {
+                        return;
+                    }
                     if (TextUtils.equals(loadedData, data)) {
                         return;
                     }

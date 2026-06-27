@@ -643,6 +643,7 @@ public class Media3PlaybackService extends MediaLibraryService {
                                         .getPreferences().getVolumeAdaptionSetting().getAdaptionFactor();
                                 applyVolumeAdaption(1.0f);
                             }
+                            adSkipController.onMediaLoaded(nextMedia);
                             player.setPlayWhenReady(UserPreferences.isFollowQueue());
                             player.setMediaItem(nextMediaItem);
                             player.seekTo(SkipUtils.skipIntroIfNecessary(this, nextMedia));

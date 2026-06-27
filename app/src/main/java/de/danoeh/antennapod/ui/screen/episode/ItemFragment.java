@@ -106,6 +106,7 @@ public class ItemFragment extends Fragment {
     private ItemActionButton actionButton1;
     private ItemActionButton actionButton2;
     private Disposable disposable;
+    private int loadGeneration = 0;
     private FeeditemFragmentBinding viewBinding;
 
     @Override
@@ -436,10 +437,15 @@ public class ItemFragment extends Fragment {
         if (!itemsLoaded) {
             viewBinding.progbarLoading.setVisibility(View.VISIBLE);
         }
+        loadGeneration++;
+        final int generation = loadGeneration;
         disposable = Observable.fromCallable(this::loadInBackground)
             .subscribeOn(Schedulers.computation())
             .observeOn(AndroidSchedulers.mainThread())
             .subscribe(result -> {
+                if (generation != loadGeneration) {
+                    return;
+                }
                 viewBinding.progbarLoading.setVisibility(View.GONE);
                 viewBinding.header.setVisibility(View.VISIBLE);
                 item = result;

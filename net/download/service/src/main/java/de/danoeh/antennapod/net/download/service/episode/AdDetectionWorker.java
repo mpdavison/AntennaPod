@@ -443,50 +443,88 @@ public class AdDetectionWorker extends Worker {
         return chunks;
     }
 
-    private List<AudioChunk> splitByBytes(File audioFile, long durationUs) throws IOException {
+    private List<AudioChunk> splitByBytes(File audioFile, long durationUs) {
         long fileSizeBytes = audioFile.length();
         long mediaId = getInputData().getLong(KEY_FEED_MEDIA_ID, 0);
         String name = audioFile.getName();
         String ext = name.contains(".") ? name.substring(name.lastIndexOf('.')) : ".mp3";
         List<AudioChunk> chunks = new ArrayList<>();
-        int chunkBytes = (int) Math.min(MAX_CHUNK_BYTES,
-                (long) ((double) MAX_CHUNK_DURATION_US / durationUs * fileSizeBytes));
-        byte[] buf = new byte[chunkBytes];
-        long bytesRead = 0;
-        int chunkIdx = 0;
-        try (FileInputStream fis = new FileInputStream(audioFile)) {
-            while (true) {
-                int total = 0;
-                while (total < buf.length) {
-                    int read = fis.read(buf, total, buf.length - total);
-                    if (read < 0) {
-                        break;
-                    }
-                    total += read;
-                }
-                if (total <= 0) {
+        long chunkDurationUs = (long) ((double) durationUs * MAX_CHUNK_BYTES / fileSizeBytes);
+        chunkDurationUs = Math.min(chunkDurationUs, MAX_CHUNK_DURATION_US);
+        chunkDurationUs = Math.max(chunkDurationUs, TimeUnit.MINUTES.toMicros(1));
+
+        MediaExtractor extractor = new MediaExtractor();
+        try {
+            extractor.setDataSource(audioFile.getAbsolutePath());
+            int audioTrack = -1;
+            for (int i = 0; i < extractor.getTrackCount(); i++) {
+                MediaFormat fmt = extractor.getTrackFormat(i);
+                String m = fmt.getString(MediaFormat.KEY_MIME);
+                if (m != null && m.startsWith("audio/")) {
+                    audioTrack = i;
                     break;
                 }
-                int start = 0;
-                if (chunkIdx > 0) {
-                    for (int i = 0; i < total - 1; i++) {
-                        if ((buf[i] & 0xFF) == 0xFF && (buf[i + 1] & 0xE0) == 0xE0) {
-                            start = i;
-                            break;
-                        }
-                    }
-                }
-                double offsetSeconds = (double) bytesRead / fileSizeBytes * (durationUs / 1_000_000.0);
-                File chunkFile = new File(getApplicationContext().getCacheDir(),
-                        "adskip_" + mediaId + "_" + chunkIdx + ext);
-                try (FileOutputStream fos = new FileOutputStream(chunkFile)) {
-                    fos.write(buf, start, total - start);
-                }
-                chunks.add(new AudioChunk(chunkFile, offsetSeconds, true));
-                bytesRead += total;
-                chunkIdx++;
             }
+            if (audioTrack < 0) {
+                return Collections.singletonList(new AudioChunk(audioFile, 0, false));
+            }
+            extractor.selectTrack(audioTrack);
+            extractor.seekTo(0, MediaExtractor.SEEK_TO_PREVIOUS_SYNC);
+
+            int chunkIdx = 0;
+            long chunkStartUs = 0;
+            long chunkBytesWritten = 0;
+            FileOutputStream currentOut = null;
+            File currentFile = null;
+            ByteBuffer buffer = ByteBuffer.allocate(512 * 1024);
+
+            while (true) {
+                int sampleSize = extractor.readSampleData(buffer, 0);
+                if (sampleSize < 0) {
+                    break;
+                }
+                long sampleTimeUs = extractor.getSampleTime();
+
+                if (currentOut == null
+                        || (sampleTimeUs - chunkStartUs > chunkDurationUs)
+                        || (chunkBytesWritten > 0
+                        && chunkBytesWritten + sampleSize > MAX_CHUNK_BYTES)) {
+                    if (currentOut != null) {
+                        currentOut.close();
+                        chunks.add(new AudioChunk(currentFile, chunkStartUs / 1_000_000.0, true));
+                    }
+                    chunkStartUs = sampleTimeUs;
+                    chunkBytesWritten = 0;
+                    currentFile = new File(getApplicationContext().getCacheDir(),
+                            "adskip_" + mediaId + "_" + chunkIdx + ext);
+                    currentOut = new FileOutputStream(currentFile);
+                    chunkIdx++;
+                }
+
+                byte[] sampleBytes = new byte[sampleSize];
+                buffer.position(0);
+                buffer.get(sampleBytes);
+                currentOut.write(sampleBytes);
+                chunkBytesWritten += sampleSize;
+                extractor.advance();
+            }
+
+            if (currentOut != null) {
+                currentOut.close();
+                chunks.add(new AudioChunk(currentFile, chunkStartUs / 1_000_000.0, true));
+            }
+        } catch (IOException e) {
+            Log.w(TAG, "Split by extractor failed: " + e.getMessage());
+            for (AudioChunk c : chunks) {
+                if (c.isTemp) {
+                    c.file.delete();
+                }
+            }
+            return Collections.singletonList(new AudioChunk(audioFile, 0, false));
+        } finally {
+            extractor.release();
         }
+
         return chunks.isEmpty()
                 ? Collections.singletonList(new AudioChunk(audioFile, 0, false))
                 : chunks;
