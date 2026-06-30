@@ -48,7 +48,6 @@ import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.net.download.serviceinterface.AdDetectionManager;
 import de.danoeh.antennapod.net.download.serviceinterface.DownloadServiceInterface;
 import de.danoeh.antennapod.playback.service.PlaybackController;
-import de.danoeh.antennapod.playback.service.PlaybackService;
 import de.danoeh.antennapod.playback.service.PlaybackStatus;
 import de.danoeh.antennapod.storage.database.DBReader;
 import de.danoeh.antennapod.storage.preferences.UsageStatistics;
@@ -72,7 +71,6 @@ import org.greenrobot.eventbus.ThreadMode;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
-import java.util.Objects;
 
 import org.json.JSONObject;
 
@@ -125,16 +123,11 @@ public class ItemFragment extends Fragment {
         viewBinding.txtvTitle.setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_FULL);
         viewBinding.txtvTitle.setEllipsize(TextUtils.TruncateAt.END);
         viewBinding.webvDescription.setTimecodeSelectedListener(time -> {
-            if (!PlaybackService.isRunning) {
-                EventBus.getDefault().post(
-                        new MessageEvent(getString(R.string.play_this_to_seek_position_message)));
-                return;
-            }
-            PlaybackController.bindToService(getActivity(), playbackService -> {
-                if (item.getMedia() != null && playbackService.getPlayable() != null
-                        && Objects.equals(item.getMedia().getIdentifier(),
-                        playbackService.getPlayable().getIdentifier())) {
-                    playbackService.seekTo(time);
+            PlaybackController.bindToMedia3Service(getActivity(), controller -> {
+                if (item.getMedia() != null && controller.getCurrentMediaItem() != null
+                        && String.valueOf(item.getMedia().getId())
+                        .equals(controller.getCurrentMediaItem().mediaId)) {
+                    controller.seekTo(time);
                 } else {
                     EventBus.getDefault().post(
                             new MessageEvent(getString(R.string.play_this_to_seek_position_message)));

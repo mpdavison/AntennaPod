@@ -55,8 +55,8 @@ public class ItemDescriptionFragment extends Fragment {
         View root = inflater.inflate(R.layout.item_description_fragment, container, false);
         webvDescription = root.findViewById(R.id.webview);
         webvDescription.setTimecodeSelectedListener(time ->
-                PlaybackController.bindToService(getActivity(), playbackService ->
-                        playbackService.seekTo(time)));
+                PlaybackController.bindToMedia3Service(getActivity(), controller ->
+                        controller.seekTo(time)));
         webvDescription.setPageFinishedListener(() -> {
             // Restoring the scroll position might not always work
             webvDescription.postDelayed(ItemDescriptionFragment.this::restoreFromPreference, 50);
