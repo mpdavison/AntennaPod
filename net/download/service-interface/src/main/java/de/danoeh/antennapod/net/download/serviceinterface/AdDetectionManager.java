@@ -160,7 +160,9 @@ public abstract class AdDetectionManager {
             sb.append("<br>&emsp;");
             sb.append(formatDurationForSummary(seg[0]));
             sb.append(" – ");
-            sb.append(formatDurationForSummary(seg[1]));
+            sb.append(String.format(java.util.Locale.US,
+                    "<a class=\"timecode\" href=\"antennapod://timecode/%d\">%s</a>",
+                    seg[1], formatDurationForSummary(seg[1])));
         }
         return sb.toString();
     }
