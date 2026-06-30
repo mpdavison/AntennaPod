@@ -270,6 +270,7 @@ public class FeedItemMenuHandler {
         Log.d(TAG, "markReadWithUndo(" + item.getId() + ")");
         // we're marking it as unplayed since the user didn't actually play it
         // but they don't want it considered 'NEW' anymore
+        int originalPlayState = item.getPlayState();
         DBWriter.markItemsPlayed(playState, false, Collections.singletonList(item));
 
         Context context = fragment.requireContext();
@@ -293,7 +294,7 @@ public class FeedItemMenuHandler {
         switch (playState) {
             default:
             case FeedItem.UNPLAYED:
-                if (item.getPlayState() == FeedItem.NEW) {
+                if (originalPlayState == FeedItem.NEW) {
                     //was new
                     message = fragment.getString(R.string.removed_from_inbox_message);
                 } else {
@@ -311,7 +312,7 @@ public class FeedItemMenuHandler {
         if (showSnackbar) {
             EventBus.getDefault().post(new MessageEvent(message,
                     ctx -> {
-                        DBWriter.markItemsPlayed(item.getPlayState(), false, Collections.singletonList(item));
+                        DBWriter.markItemsPlayed(originalPlayState, false, Collections.singletonList(item));
                         // don't forget to cancel the thing that's going to remove the media
                         h.removeCallbacks(r);
                     }, fragment.getString(R.string.undo)));
