@@ -492,8 +492,8 @@ public class AdDetectionWorker extends Worker {
                     if (currentOut != null) {
                         currentOut.close();
                         chunks.add(new AudioChunk(currentFile, chunkStartUs / 1_000_000.0, true));
+                        chunkStartUs = sampleTimeUs;
                     }
-                    chunkStartUs = sampleTimeUs;
                     chunkBytesWritten = 0;
                     currentFile = new File(getApplicationContext().getCacheDir(),
                             "adskip_" + mediaId + "_" + chunkIdx + ext);

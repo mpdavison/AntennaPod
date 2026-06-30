@@ -572,7 +572,7 @@
     <string name="pref_ad_martyr_enabled_sum">Play all ads at the end of the episode instead of skipping them</string>
     <string name="ad_detection_summary_processing">Ad detection in progress\u2026</string>
     <string name="ad_detection_summary_none">No ads detected</string>
-    <string name="ad_detection_summary_ads">Ads detected: %1$d (%2$s total)</string>
+    <string name="ad_detection_summary_ads">Ads segments: %1$d (%2$s total)</string>
     <string name="clear_ad_timestamps_label">Clear ad timestamps</string>
     <string name="pref_ad_transcription_category">Transcription (Whisper)</string>
     <string name="pref_ad_chat_category">Classification (Chat)</string>
