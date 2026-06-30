@@ -353,7 +353,7 @@ public class AdSkipControllerTest {
     }
 
     @Test
-    public void suppressesToastInAdMartyrMode() throws Exception {
+    public void toastShownInAdMartyrMode() throws Exception {
         writeTimestamps("complete", 30000, 60000);
         AdSkipController controller = createController();
         controller.onMediaLoaded(media);
@@ -361,8 +361,8 @@ public class AdSkipControllerTest {
 
         controller.checkPosition(35000, 300000);
 
-        // Toast uses getString(resId, formatArg) — should not be called in martyr mode
-        verify(context, never()).getString(anyInt(), any());
+        // Toast is always shown, regardless of martyr mode
+        verify(context).getString(anyInt(), any());
     }
 
     @Test

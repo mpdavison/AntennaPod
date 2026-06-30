@@ -207,19 +207,17 @@ public class AdSkipController {
                     final long skipTo = seg[1];
                     Log.d(TAG, "Ad skip: jumping from " + positionMs + " to " + skipTo);
                     playBeep();
-                    if (!adMartyrEnabled) {
-                        long skippedFrom = positionMs;
-                        final int segIdx = i;
-                        long adDurationMs = skipTo - seg[0];
-                        String durationStr = formatDuration(adDurationMs);
-                        EventBus.getDefault().post(new MessageEvent(
-                                context.getString(R.string.ad_skip_toast, durationStr),
-                                ctx -> {
-                                    suppressedSegments.add(segIdx);
-                                    seekCallback.seekTo(skippedFrom);
-                                },
-                                context.getString(R.string.undo)));
-                    }
+                    long skippedFrom = positionMs;
+                    final int segIdx = i;
+                    long adDurationMs = skipTo - seg[0];
+                    String durationStr = formatDuration(adDurationMs);
+                    EventBus.getDefault().post(new MessageEvent(
+                            context.getString(R.string.ad_skip_toast, durationStr),
+                            ctx -> {
+                                suppressedSegments.add(segIdx);
+                                seekCallback.seekTo(skippedFrom);
+                            },
+                            context.getString(R.string.undo)));
                     seekCallback.seekTo(skipTo);
                 }
                 break;
