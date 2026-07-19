@@ -39,3 +39,5 @@ adskip/*log
 adskip/duckdb*
 __pycache__
 venv
+cloudflared-credentials.json
+.env
