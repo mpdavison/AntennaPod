@@ -304,7 +304,7 @@ public class ImportExportPreferencesFragment extends AnimatedPreferenceFragment 
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(() -> {
                     progressDialog.dismiss();
-                    Snackbar.make(getView(), R.string.import_ok, Snackbar.LENGTH_LONG).show();
+                    Snackbar.make(getView(), R.string.ad_settings_import_success, Snackbar.LENGTH_LONG).show();
                 }, this::showExportErrorDialog);
     }
 
