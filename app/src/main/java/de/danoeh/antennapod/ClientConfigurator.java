@@ -19,6 +19,7 @@ import de.danoeh.antennapod.storage.preferences.PlaybackPreferences;
 import de.danoeh.antennapod.storage.preferences.SleepTimerPreferences;
 import de.danoeh.antennapod.storage.preferences.UsageStatistics;
 import de.danoeh.antennapod.net.common.UserAgentInterceptor;
+import de.danoeh.antennapod.net.common.NostrPreferences;
 import de.danoeh.antennapod.storage.preferences.UserPreferences;
 import de.danoeh.antennapod.net.common.AntennapodHttpClient;
 import de.danoeh.antennapod.net.download.serviceinterface.DownloadServiceInterface;
@@ -50,6 +51,7 @@ public class ClientConfigurator {
         SynchronizationSettings.init(context);
         UsageStatistics.init(context);
         PlaybackPreferences.init(context);
+        NostrPreferences.init(context);
         SslProviderInstaller.install(context);
         NetworkUtils.init(context);
         DownloadServiceInterface.setImpl(new DownloadServiceInterfaceImpl());

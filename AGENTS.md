@@ -198,6 +198,7 @@ adb logcat -d | grep "de.danoeh.antennapod" | tail -20
 15. **PlaybackService** uses `MediaSessionCompat` and `androidx.media3`, and the manifest has `USE_MEDIA3_PLAYBACK_SERVICE` build config flag
 16. **Version codes follow a schema**: `1.2.3-beta4` → `1020304`, `1.2.3` → `1020395`
 17. **`commons-io` must stay at 2.5** — newer versions cause `ClassNotFoundException` on Android 6
+18. **Never reinvent wheels** — use existing well-vetted libraries for cryptography, encoding, and protocol implementation. Implementing ciphers, hash algorithms, signature schemes, or protocol parsers from scratch is forbidden unless you obtain explicit permission.
 
 # PR Conventions
 When creating a PR, always read the PR template at .github/pull_request_template.md before starting and strictly follow it.

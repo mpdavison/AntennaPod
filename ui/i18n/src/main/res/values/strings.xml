@@ -8,7 +8,7 @@
     <string name="general_collapse_button">Collapse</string>
 
     <!-- Activity and fragment titles -->
-    <string name="provider_authority" translatable="false">de.danoeh.antennapod.provider</string>
+    <string name="provider_authority" translatable="false">com.onesixeight.antennapod.provider</string>
     <string name="feed_update_receiver_name">Update subscriptions</string>
     <string name="statistics_label">Statistics</string>
     <string name="statistics_label_short">Stats</string>
@@ -574,6 +574,9 @@
     <string name="ad_detection_summary_none">No ads detected</string>
     <string name="ad_detection_summary_ads">Ads segments: %1$d (%2$s total)</string>
     <string name="clear_ad_timestamps_label">Clear ad timestamps</string>
+    <string name="pref_nostr_category">Nostr Community Ad Timestamps</string>
+    <string name="pref_nostr_enabled_title">Enable Nostr sharing</string>
+    <string name="pref_nostr_enabled_sum">Automatically share and discover ad timestamps via Nostr relays</string>
     <string name="pref_ad_transcription_category">Transcription (Whisper)</string>
     <string name="pref_ad_chat_category">Classification (Chat)</string>
     <string name="pref_ad_provider_title">Provider</string>

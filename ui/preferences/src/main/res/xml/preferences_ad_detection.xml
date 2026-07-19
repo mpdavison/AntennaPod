@@ -37,4 +37,16 @@
                 android:title="@string/pref_ad_manage_profiles_title"/>
     </PreferenceCategory>
 
+    <PreferenceCategory
+            android:key="prefNostrCategory"
+            android:title="@string/pref_nostr_category">
+
+        <SwitchPreferenceCompat
+                android:key="prefNostrEnabled"
+                android:title="@string/pref_nostr_enabled_title"
+                android:summary="@string/pref_nostr_enabled_sum"
+                android:defaultValue="true"/>
+
+    </PreferenceCategory>
+
 </PreferenceScreen>

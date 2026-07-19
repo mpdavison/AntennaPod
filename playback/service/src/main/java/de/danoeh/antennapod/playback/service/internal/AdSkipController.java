@@ -6,6 +6,7 @@ import android.media.ToneGenerator;
 import android.util.Log;
 import androidx.annotation.VisibleForTesting;
 import de.danoeh.antennapod.net.download.serviceinterface.AdDetectionManager;
+import de.danoeh.antennapod.net.common.NostrClient;
 import de.danoeh.antennapod.event.MessageEvent;
 import de.danoeh.antennapod.model.feed.Feed;
 import de.danoeh.antennapod.model.feed.FeedItem;
@@ -126,6 +127,11 @@ public class AdSkipController {
                 File tsFile = AdDetectionManager.adTimestampsFileFor(context, media);
                 adTimestampsPath = tsFile.getAbsolutePath();
                 tryLoadAdSegments();
+                if (adSegments == null && media.isDownloaded()
+                        && media.getLocalFileUrl() != null
+                        && AdDetectionPreferences.isNostrEnabled()) {
+                    tryNostrFallback(media);
+                }
                 adMartyrEnabled = AdDetectionPreferences.isAdMartyrEnabled();
                 if (adMartyrEnabled && adSegments != null) {
                     pendingAdSegments.clear();
@@ -273,6 +279,25 @@ public class AdSkipController {
             Log.i(TAG, "Loaded " + segs.size() + " ad segment(s) from " + adTimestampsPath);
         } catch (Exception e) {
             Log.w(TAG, "Failed to load ad timestamps: " + e.getMessage());
+        }
+    }
+
+    private void tryNostrFallback(FeedMedia media) {
+        try {
+            File localFile = new File(media.getLocalFileUrl());
+            if (!localFile.exists()) {
+                return;
+            }
+            String md5Hash = NostrClient.computeAudioMd5(localFile);
+            List<long[]> nostrAds = NostrClient.queryAdTimestamps(md5Hash);
+            if (nostrAds != null) {
+                adSegments = nostrAds;
+                processingComplete = true;
+                Log.i(TAG, "Loaded " + nostrAds.size()
+                        + " ad segment(s) from Nostr");
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Nostr check failed during playback", e);
         }
     }
 

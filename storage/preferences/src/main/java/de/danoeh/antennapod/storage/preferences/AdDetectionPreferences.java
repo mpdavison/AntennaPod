@@ -18,6 +18,7 @@ public abstract class AdDetectionPreferences {
     public static final String PREF_AD_TRANSCRIPTION_ACTIVE_ID = "prefAdTranscriptionActiveId";
     public static final String PREF_AD_CHAT_PROFILES = "prefAdChatProfiles";
     public static final String PREF_AD_CHAT_ACTIVE_ID = "prefAdChatActiveId";
+    public static final String PREF_NOSTR_ENABLED = "prefNostrEnabled";
 
     public static final int ROLE_TRANSCRIPTION = 1;
     public static final int ROLE_CHAT = 2;
@@ -125,6 +126,13 @@ public abstract class AdDetectionPreferences {
             return false;
         }
         return prefs.getBoolean(PREF_AD_DETECTION_ENABLED, false);
+    }
+
+    public static boolean isNostrEnabled() {
+        if (prefs == null) {
+            return true;
+        }
+        return prefs.getBoolean(PREF_NOSTR_ENABLED, true);
     }
 
     public static boolean isAdMartyrEnabled() {

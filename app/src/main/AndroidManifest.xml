@@ -290,11 +290,6 @@
                 android:resource="@xml/provider_paths"/>
         </provider>
 
-        <meta-data
-            tools:ignore="Deprecated"
-            android:name="com.google.android.actions"
-            android:resource="@xml/actions" />
-
         <service
             android:name="androidx.work.impl.foreground.SystemForegroundService"
             android:foregroundServiceType="dataSync"

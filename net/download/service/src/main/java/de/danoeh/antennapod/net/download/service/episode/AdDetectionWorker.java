@@ -31,6 +31,8 @@ import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.model.feed.FeedPreferences;
 import de.danoeh.antennapod.storage.database.DBReader;
 import de.danoeh.antennapod.storage.preferences.AdDetectionPreferences;
+import de.danoeh.antennapod.net.common.NostrClient;
+import de.danoeh.antennapod.net.common.NostrPreferences;
 import okhttp3.MediaType;
 import okhttp3.MultipartBody;
 import okhttp3.OkHttpClient;
@@ -45,6 +47,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -197,6 +200,11 @@ public class AdDetectionWorker extends Worker {
             return Result.success();
         }
         String episodeTitle = media.getItem() != null ? media.getItem().getTitle() : episodeUrl;
+        String feedUrl = null;
+        FeedItem item = media.getItem();
+        if (item != null && item.getFeed() != null) {
+            feedUrl = item.getFeed().getDownloadUrl();
+        }
         Log.i(TAG, "Starting ad detection for: " + episodeTitle);
 
         OkHttpClient client = new OkHttpClient.Builder()
@@ -221,6 +229,35 @@ public class AdDetectionWorker extends Worker {
                 Log.w(TAG, "Failed to download audio: " + e.getMessage());
                 audioFile.delete();
                 return Result.success();
+            }
+        }
+
+        String md5Hash = null;
+        try {
+            md5Hash = NostrClient.computeAudioMd5(audioFile);
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to compute MD5: " + e.getMessage());
+        }
+
+        if (AdDetectionPreferences.isNostrEnabled() && md5Hash != null) {
+            try {
+                List<long[]> nostrAds = NostrClient.queryAdTimestamps(md5Hash);
+                if (nostrAds != null) {
+                    Log.i(TAG, "Using ad timestamps from Nostr: "
+                            + nostrAds.size() + " ad(s)");
+                    File outFile = AdDetectionManager.adTimestampsFileFor(
+                            getApplicationContext(), media);
+                    writeAdTimestamps(outFile, nostrAds, md5Hash);
+                    AdDetectionManager.setProgress(feedMediaId, 100);
+                    EventBus.getDefault().post(new AdDetectionProgressEvent(
+                            Collections.singleton(feedMediaId)));
+                    if (isDownloaded && audioFile != null) {
+                        audioFile.delete();
+                    }
+                    return Result.success();
+                }
+            } catch (Exception e) {
+                Log.w(TAG, "Nostr check failed, falling back to local detection", e);
             }
         }
 
@@ -274,8 +311,24 @@ public class AdDetectionWorker extends Worker {
             reportProgress(feedMediaId, completedSteps, totalSteps);
 
             File outFile = AdDetectionManager.adTimestampsFileFor(getApplicationContext(), media);
-            writeAdTimestamps(outFile, ads);
-            Log.i(TAG, "Ad detection complete: " + ads.size() + " ad segment(s) for " + episodeTitle);
+            writeAdTimestamps(outFile, ads, md5Hash);
+            Log.i(TAG, "Ad detection complete: " + ads.size() + " ad segment(s) for "
+                    + episodeTitle);
+
+            if (AdDetectionPreferences.isNostrEnabled() && md5Hash != null
+                    && !ads.isEmpty()) {
+                try {
+                    BigInteger key = NostrPreferences.getPrivateKey();
+                    if (key == null) {
+                        key = NostrClient.generatePrivateKey();
+                        NostrPreferences.setKeyPair(key);
+                    }
+                    NostrClient.publishAdTimestamps(md5Hash, ads, feedUrl,
+                            episodeTitle, key);
+                } catch (Exception e) {
+                    Log.w(TAG, "Failed to publish ad timestamps to Nostr", e);
+                }
+            }
         } catch (Exception e) {
             Log.e(TAG, "Ad detection failed: " + e.getMessage());
         } finally {
@@ -748,7 +801,8 @@ public class AdDetectionWorker extends Worker {
         return merged;
     }
 
-    private void writeAdTimestamps(File outFile, List<long[]> ads) throws IOException, JSONException {
+    private void writeAdTimestamps(File outFile, List<long[]> ads, String md5Hash)
+            throws IOException, JSONException {
         JSONArray adsArray = new JSONArray();
         for (long[] ad : ads) {
             JSONObject adObj = new JSONObject();
@@ -759,6 +813,9 @@ public class AdDetectionWorker extends Worker {
         JSONObject root = new JSONObject();
         root.put("status", "complete");
         root.put("ads", adsArray);
+        if (md5Hash != null) {
+            root.put("md5", md5Hash);
+        }
 
         File tmpFile = new File(outFile.getParent(), outFile.getName() + ".tmp");
         tmpFile.getParentFile().mkdirs();

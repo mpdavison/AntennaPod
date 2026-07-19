@@ -20,6 +20,7 @@ dependencies {
     annotationProcessor "androidx.annotation:annotation:$annotationVersion"
     implementation "com.squareup.okhttp3:okhttp:$okhttpVersion"
     implementation "com.squareup.okhttp3:okhttp-urlconnection:$okhttpVersion"
+    implementation "org.bouncycastle:bcprov-jdk15to18:1.78.1"
 
     testImplementation "junit:junit:$junitVersion"
     testImplementation "org.robolectric:robolectric:$robolectricVersion"
