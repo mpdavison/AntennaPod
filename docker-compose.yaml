@@ -12,8 +12,22 @@ services:
       - .env
     environment:
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
-    command: tail -f /dev/null # ./gradlew :app:assembleDebug
+    command: tail -f /dev/null
+
+  nostr:
+    image: scsibug/nostr-rs-relay:latest
+    volumes:
+      - ./nostr-config.toml:/config.toml:ro
+      - nostr-data:/data
+    restart: unless-stopped
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate run --token ${CF_TUNNEL_TOKEN}
+    restart: unless-stopped
+    depends_on:
+      - nostr
 
 volumes:
   gradle-cache:
-
+  nostr-data:
