@@ -28,6 +28,33 @@ services:
     depends_on:
       - nostr
 
+  whisper:
+    image: ghcr.io/speaches-ai/speaches:latest-cuda-12.6.3
+    container_name: whisper
+    build:
+      args:
+        BASE_IMAGE: nvidia/cuda:12.6.3-base-ubuntu24.04
+    environment:
+      - PRELOAD_MODELS=["deepdml/faster-whisper-large-v3-turbo-ct2"]
+      - WHISPER__CONDITION_ON_PREVIOUS_TEXT=false
+      - API_KEY=${WHISPER_API_KEY}
+      - DEFAULT_SPEED=1.75
+      - ENABLE_UI=false
+    volumes:
+      - whisper_models:/root/.cache/huggingface
+      - hf-hub-cache:/home/ubuntu/.cache/huggingface/hub
+    ports:
+      - "8001:8000"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
 volumes:
   gradle-cache:
   nostr-data:
+  whisper_models:
+  hf-hub-cache:

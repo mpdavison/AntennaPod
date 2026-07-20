@@ -145,7 +145,7 @@ The interface module (`:net:download:service-interface`) depends on `:model`, `:
 
 ## Build
 ```bash
-./gradlew :app:assembleDebug
+JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 ./gradlew :app:assembleDebug
 ```
 
 ## Install & Run
@@ -199,6 +199,22 @@ adb logcat -d | grep "de.danoeh.antennapod" | tail -20
 16. **Version codes follow a schema**: `1.2.3-beta4` → `1020304`, `1.2.3` → `1020395`
 17. **`commons-io` must stay at 2.5** — newer versions cause `ClassNotFoundException` on Android 6
 18. **Never reinvent wheels** — use existing well-vetted libraries for cryptography, encoding, and protocol implementation. Implementing ciphers, hash algorithms, signature schemes, or protocol parsers from scratch is forbidden unless you obtain explicit permission.
+
+# CHANGES.md
+
+`CHANGES.md` at the project root documents all differences from upstream AntennaPod.
+It has two sections: **Additions** (net-new files) and **Modifications** (upstream files that were edited).
+Keep both lists up to date whenever you create or modify files.
+
+To generate the lists from git history:
+
+```bash
+# Additions (files first seen as --diff-filter=A)
+git log --author="Michael Davison" --diff-filter=A --name-only --pretty=format:"" | sort -u | grep -v "^$"
+
+# Modifications (--diff-filter=M, minus those already listed as additions)
+git log --author="Michael Davison" --diff-filter=M --name-only --pretty=format:"" | sort -u | grep -v "^$"
+```
 
 # PR Conventions
 When creating a PR, always read the PR template at .github/pull_request_template.md before starting and strictly follow it.

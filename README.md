@@ -7,6 +7,16 @@
 
 ---
 
+## Why AdSkip?
+
+**Ad-creep is enshittification.** Episodes keep getting more ads — pre-roll, mid-roll, post-roll — with no way to know what you're getting before you hit play. This fork pushes in the other direction.
+
+**It's not just time. It's attention.** Your attention belongs to you. Nobody has a right to yank you out of a story or conversation to sell you something you didn't ask for.
+
+**You're going to skip it anyway.** The only question is whether you mash the skip-forward button six times or the app handles it for you. Automating that means you keep your eyes on the road and hands on the wheel.
+
+**Ad Martyr mode** is the compromise: every ad still plays, just at the end of the episode instead of scattered throughout. You hear the content uninterrupted. Creators still get their ads heard.
+
 ## AdSkip Features
 
 This fork adds **automatic ad detection and skipping** to AntennaPod. When enabled, the app detects advertisement segments in downloaded podcast episodes using AI transcription and classification, then automatically skips past them during playback.
@@ -35,7 +45,7 @@ Configure ad detection in **Settings → Ad Detection**:
 | **Classification (Chat)** | Choose a provider profile for the LLM that identifies ad segments |
 | **Nostr Community Ad Timestamps** | Enable sharing and discovering ad timestamps via Nostr relays |
 
-**Provider Profiles** let you configure API keys, base URLs, and model names for the transcription and classification steps. Pre-configured defaults are provided for a local Faster Whisper endpoint and DeepSeek.
+**Provider Profiles** let you configure API keys, base URLs, and model names for the transcription and classification steps. Supports OpenAI, Groq, or any compatible custom endpoint.
 
 ### Per-Feed Ad Detection
 
@@ -47,7 +57,7 @@ When an ad is skipped, a toast appears with an **Undo** button. Tap it to revers
 
 ### Import/Export
 
-Ad detection preferences (provider profiles and settings) are included in the standard AntennaPod settings export/import flow.
+Ad detection settings — including provider profiles, active provider selections, and the enabled/martyr-mode toggles — can be exported to and imported from a standalone JSON file via the **Settings → Import/Export** screen.
 
 ---
 
@@ -58,3 +68,4 @@ You can build this fork just like the original AntennaPod — it's a standard An
 ## License
 
 AntennaPod is licensed under the GNU General Public License (GPL-3.0). See the [LICENSE](https://github.com/AntennaPod/AntennaPod/blob/develop/LICENSE) file.
+This fork's modifications are documented in [CHANGES.md](CHANGES.md).

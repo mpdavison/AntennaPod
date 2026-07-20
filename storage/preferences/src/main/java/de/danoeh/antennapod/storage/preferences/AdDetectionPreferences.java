@@ -81,10 +81,6 @@ public abstract class AdDetectionPreferences {
     private static SharedPreferences prefs;
 
     public static void init(Context context) {
-        init(context, "");
-    }
-
-    public static void init(Context context, String defaultChatApiKey) {
         prefs = PreferenceManager.getDefaultSharedPreferences(context);
 
         if (!prefs.contains(PREF_AD_DETECTION_ENABLED)) {
@@ -94,30 +90,46 @@ public abstract class AdDetectionPreferences {
             prefs.edit().putBoolean(PREF_AD_MARTYR_ENABLED, false).apply();
         }
 
-        AdProviderProfile transcriptionProfile = new AdProviderProfile();
-        transcriptionProfile.id = UUID.randomUUID().toString();
-        transcriptionProfile.name = "Local Whisper";
-        transcriptionProfile.type = AdProviderProfile.TYPE_CUSTOM;
-        transcriptionProfile.apiKey = "not-needed-locally";
-        transcriptionProfile.baseUrl = "https://wspr.1681248.com/v1";
-        transcriptionProfile.model = "deepdml/faster-whisper-large-v3-turbo-ct2";
+        String deepseekApiUrl = System.getenv("DEEPSEEK_API_URL");
+        String deepseekApiKey = System.getenv("DEEPSEEK_API_KEY");
+        String deepseekApiModel = System.getenv("DEEPSEEK_API_MODEL");
+        String whisperApiKey = System.getenv("WHISPER_API_KEY");
+        String whisperApiUrl = System.getenv("WHISPER_API_URL");
+        String whisperApiModel = System.getenv("WHISPER_API_MODEL");
 
-        AdProviderProfile chatProfile = new AdProviderProfile();
-        chatProfile.id = UUID.randomUUID().toString();
-        chatProfile.name = "DeepSeek";
-        chatProfile.type = AdProviderProfile.TYPE_CUSTOM;
-        chatProfile.apiKey = defaultChatApiKey;
-        chatProfile.baseUrl = "https://api.deepseek.com/v1";
-        chatProfile.model = "deepseek-v4-pro";
-        chatProfile.prompt = DEFAULT_CLASSIFICATION_PROMPT;
+        boolean envVarsPresent = deepseekApiUrl != null
+                && deepseekApiKey != null
+                && deepseekApiModel != null
+                && whisperApiKey != null
+                && whisperApiUrl != null
+                && whisperApiModel != null;
 
-        if (getProfiles(ROLE_TRANSCRIPTION).isEmpty()) {
-            setProfiles(ROLE_TRANSCRIPTION, List.of(transcriptionProfile));
-            setActiveProfileId(ROLE_TRANSCRIPTION, transcriptionProfile.id);
-        }
-        if (getProfiles(ROLE_CHAT).isEmpty()) {
-            setProfiles(ROLE_CHAT, List.of(chatProfile));
-            setActiveProfileId(ROLE_CHAT, chatProfile.id);
+        if (envVarsPresent) {
+            AdProviderProfile transcriptionProfile = new AdProviderProfile();
+            transcriptionProfile.id = UUID.randomUUID().toString();
+            transcriptionProfile.name = "Local Whisper";
+            transcriptionProfile.type = AdProviderProfile.TYPE_CUSTOM;
+            transcriptionProfile.apiKey = whisperApiKey;
+            transcriptionProfile.baseUrl = whisperApiUrl;
+            transcriptionProfile.model = whisperApiModel;
+
+            AdProviderProfile chatProfile = new AdProviderProfile();
+            chatProfile.id = UUID.randomUUID().toString();
+            chatProfile.name = "DeepSeek";
+            chatProfile.type = AdProviderProfile.TYPE_CUSTOM;
+            chatProfile.apiKey = deepseekApiKey;
+            chatProfile.baseUrl = deepseekApiUrl;
+            chatProfile.model = deepseekApiModel;
+            chatProfile.prompt = DEFAULT_CLASSIFICATION_PROMPT;
+
+            if (getProfiles(ROLE_TRANSCRIPTION).isEmpty()) {
+                setProfiles(ROLE_TRANSCRIPTION, List.of(transcriptionProfile));
+                setActiveProfileId(ROLE_TRANSCRIPTION, transcriptionProfile.id);
+            }
+            if (getProfiles(ROLE_CHAT).isEmpty()) {
+                setProfiles(ROLE_CHAT, List.of(chatProfile));
+                setActiveProfileId(ROLE_CHAT, chatProfile.id);
+            }
         }
     }
 

@@ -34,6 +34,10 @@ public class AboutFragment extends AnimatedPreferenceFragment {
 
         findPreference("about_version").setSummary(String.format(
                 "%s (%s)", versionName, BuildConfig.COMMIT_HASH));
+        findPreference("about_fork_notice").setOnPreferenceClickListener(preference -> {
+            IntentUtils.openInBrowser(getContext(), "https://github.com/AntennaPod/AntennaPod/blob/develop/LICENSE");
+            return true;
+        });
         findPreference("about_version").setOnPreferenceClickListener((preference) -> {
             ClipboardManager clipboard = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
             ClipData clip = ClipData.newPlainText(getString(R.string.about_pref),
