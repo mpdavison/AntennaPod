@@ -359,6 +359,12 @@ class DBUpgrader {
             db.execSQL("ALTER TABLE " + PodDBAdapter.TABLE_NAME_FEEDS
                     + " ADD COLUMN " + PodDBAdapter.KEY_AD_DETECTION + " INTEGER DEFAULT 0");
         }
+        if (oldVersion < 3110002) {
+            db.execSQL("ALTER TABLE " + PodDBAdapter.TABLE_NAME_FEED_MEDIA
+                    + " ADD COLUMN " + PodDBAdapter.KEY_AD_SEGMENT_COUNT + " INTEGER DEFAULT 0");
+            db.execSQL("ALTER TABLE " + PodDBAdapter.TABLE_NAME_FEED_MEDIA
+                    + " ADD COLUMN " + PodDBAdapter.KEY_AD_TOTAL_DURATION + " INTEGER DEFAULT 0");
+        }
     }
 
 }

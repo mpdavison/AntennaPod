@@ -14,6 +14,7 @@ import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.model.feed.FeedPreferences;
 import de.danoeh.antennapod.playback.service.R;
 import de.danoeh.antennapod.storage.preferences.AdDetectionPreferences;
+import de.danoeh.antennapod.storage.database.DBWriter;
 import org.greenrobot.eventbus.EventBus;
 import java.io.BufferedReader;
 import java.io.File;
@@ -138,6 +139,13 @@ public class AdSkipController {
                     for (long[] seg : adSegments) {
                         pendingAdSegments.add(new long[]{seg[0], seg[1]});
                     }
+                }
+                if (adSegments != null && processingComplete && currentMediaId >= 0) {
+                    long totalMs = 0;
+                    for (long[] seg : adSegments) {
+                        totalMs += seg[1] - seg[0];
+                    }
+                    DBWriter.setFeedMediaAdStats(currentMediaId, adSegments.size(), totalMs);
                 }
             }
         } else {

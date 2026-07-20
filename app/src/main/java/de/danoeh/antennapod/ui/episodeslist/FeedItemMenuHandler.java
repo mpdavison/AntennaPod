@@ -244,6 +244,7 @@ public class FeedItemMenuHandler {
             if (media != null) {
                 AdDetectionManager.adTimestampsFileFor(context, media).delete();
                 AdDetectionManager.setProgress(media.getId(), -1);
+                DBWriter.setFeedMediaAdStats(media.getId(), 0, 0);
                 EventBus.getDefault().post(new AdDetectionProgressEvent(Collections.singleton(media.getId())));
             }
         } else {

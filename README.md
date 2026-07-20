@@ -9,13 +9,15 @@
 
 ## Why AdSkip?
 
-**Ad-creep is enshittification.** Episodes keep getting more ads — pre-roll, mid-roll, post-roll — with no way to know what you're getting before you hit play. This fork pushes in the other direction.
+**Podcast providers inject too many ads.** 15 minutes of ads in a 1-hour episode is CRAZY (looking at YOU, **iHeart**). This fork is a direct response to that.
 
-**It's not just time. It's attention.** Your attention belongs to you. Nobody has a right to yank you out of a story or conversation to sell you something you didn't ask for.
+**Attention is finite.** Your attention belongs to you. Nobody has a right to yank you out of a story or conversation to sell you something you didn't ask for.
 
-**You're going to skip it anyway.** The only question is whether you mash the skip-forward button six times or the app handles it for you. Automating that means you keep your eyes on the road and hands on the wheel.
+**You're going to skip it anyway.** The only question is whether you mash the skip-forward button six times or the app handles it for you.
 
-**Ad Martyr mode** is the compromise: every ad still plays, just at the end of the episode instead of scattered throughout. You hear the content uninterrupted. Creators still get their ads heard.
+## What about the creators?
+
+If the ad-driven model is the only revenue model that works, then the model stinks. If you believe that listening to the ads is the only way to support creators, then you can still do so with **Ad Martyr mode.** Every ad still plays, just at the end of the episode instead of scattered throughout. You hear the content uninterrupted. Creators still get their ads heard.
 
 ## AdSkip Features
 
@@ -27,11 +29,15 @@ This fork adds **automatic ad detection and skipping** to AntennaPod. When enabl
 
 2. **Automatic Skipping** — During playback, the `AdSkipController` monitors the playback position against the detected ad segments. When playback enters an ad segment, it seamlessly seeks past it, plays a short beep, and offers an undo action.
 
-3. **Nostr Integration** — Optionally share and discover ad timestamps via the Nostr relay network. Community-sourced timestamps can skip the AI pipeline entirely when a matching episode is found.
+3. **Nostr Integration** — Optionally share and discover ad timestamps anonymously via the Nostr relay network. Community-sourced timestamps can skip the AI pipeline entirely when a matching episode is found.
 
 4. **Ad Martyr Mode** — Instead of skipping ads, collect all ad segments and play them back-to-back at the end of the episode.
 
 5. **Per-Feed Control** — Enable, disable, or defer to the global setting on a per-podcast basis.
+
+### Is it expensive?
+
+No, but _it depends_&trade;. You can do transcription with your old GPU or use OpenAI. You can use Deepseek's LLMs for classification or one of the top-tier AI providers. The most expensive processing is the transcription. If you host that yourself then the cost will be your electricity plus whatever LLM you use for classification. The app is designed to be provider-agnostic, so you can choose combinations of providers that suit your budget and privacy needs.
 
 ### Configuration
 

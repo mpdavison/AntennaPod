@@ -30,6 +30,7 @@ import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.model.feed.FeedPreferences;
 import de.danoeh.antennapod.storage.database.DBReader;
+import de.danoeh.antennapod.storage.database.DBWriter;
 import de.danoeh.antennapod.storage.preferences.AdDetectionPreferences;
 import de.danoeh.antennapod.net.common.NostrClient;
 import de.danoeh.antennapod.net.common.NostrPreferences;
@@ -248,6 +249,11 @@ public class AdDetectionWorker extends Worker {
                     File outFile = AdDetectionManager.adTimestampsFileFor(
                             getApplicationContext(), media);
                     writeAdTimestamps(outFile, nostrAds, md5Hash);
+                    long nostrTotalMs = 0;
+                    for (long[] ad : nostrAds) {
+                        nostrTotalMs += ad[1] - ad[0];
+                    }
+                    DBWriter.setFeedMediaAdStats(feedMediaId, nostrAds.size(), nostrTotalMs);
                     AdDetectionManager.setProgress(feedMediaId, 100);
                     EventBus.getDefault().post(new AdDetectionProgressEvent(
                             Collections.singleton(feedMediaId)));
@@ -312,6 +318,11 @@ public class AdDetectionWorker extends Worker {
 
             File outFile = AdDetectionManager.adTimestampsFileFor(getApplicationContext(), media);
             writeAdTimestamps(outFile, ads, md5Hash);
+            long totalDurationMs = 0;
+            for (long[] ad : ads) {
+                totalDurationMs += ad[1] - ad[0];
+            }
+            DBWriter.setFeedMediaAdStats(feedMediaId, ads.size(), totalDurationMs);
             Log.i(TAG, "Ad detection complete: " + ads.size() + " ad segment(s) for "
                     + episodeTitle);
 

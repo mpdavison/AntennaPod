@@ -60,6 +60,10 @@
             android:id="@+id/episodeSchedule"
             layout="@layout/feed_statistics_card" />
 
+        <include
+            android:id="@+id/adTimeDetected"
+            layout="@layout/feed_statistics_card" />
+
     </LinearLayout>
 
 </LinearLayout>

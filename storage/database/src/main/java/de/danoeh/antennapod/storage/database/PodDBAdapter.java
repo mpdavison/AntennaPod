@@ -54,7 +54,7 @@ public class PodDBAdapter {
 
     private static final String TAG = "PodDBAdapter";
     public static final String DATABASE_NAME = "Antennapod.db";
-    public static final int VERSION = 3110001;
+    public static final int VERSION = 3110002;
 
     /**
      * Maximum number of arguments for IN-operator.
@@ -121,6 +121,8 @@ public class PodDBAdapter {
     public static final String KEY_FEED_SKIP_ENDING = "feed_skip_ending";
     public static final String KEY_FEED_TAGS = "tags";
     public static final String KEY_AD_DETECTION = "ad_detection";
+    public static final String KEY_AD_SEGMENT_COUNT = "ad_segment_count";
+    public static final String KEY_AD_TOTAL_DURATION = "ad_total_duration_ms";
     public static final String KEY_EPISODE_NOTIFICATION = "episode_notification";
     public static final String KEY_NEW_EPISODES_ACTION = "new_episodes_action";
     public static final String KEY_PODCASTINDEX_CHAPTER_URL = "podcastindex_chapter_url";
@@ -205,7 +207,9 @@ public class PodDBAdapter {
             + KEY_FEEDITEM + " INTEGER,"
             + KEY_PLAYED_DURATION + " INTEGER,"
             + KEY_HAS_EMBEDDED_PICTURE + " INTEGER,"
-            + KEY_LAST_PLAYED_TIME_STATISTICS + " INTEGER" + ")";
+            + KEY_LAST_PLAYED_TIME_STATISTICS + " INTEGER,"
+            + KEY_AD_SEGMENT_COUNT + " INTEGER DEFAULT 0,"
+            + KEY_AD_TOTAL_DURATION + " INTEGER DEFAULT 0" + ")";
 
     private static final String CREATE_TABLE_DOWNLOAD_LOG = "CREATE TABLE "
             + TABLE_NAME_DOWNLOAD_LOG + " (" + TABLE_PRIMARY_KEY + KEY_FEEDFILE
@@ -612,11 +616,25 @@ public class PodDBAdapter {
         }
     }
 
+    public void setFeedMediaAdStats(long mediaId, int segmentCount, long totalDurationMs) {
+        if (mediaId != 0) {
+            ContentValues values = new ContentValues();
+            values.put(KEY_AD_SEGMENT_COUNT, segmentCount);
+            values.put(KEY_AD_TOTAL_DURATION, totalDurationMs);
+            db.update(TABLE_NAME_FEED_MEDIA, values, KEY_ID + "=?",
+                    new String[]{String.valueOf(mediaId)});
+        } else {
+            Log.e(TAG, "setFeedMediaAdStats: ID of media was 0");
+        }
+    }
+
     public void resetAllMediaPlayedDuration() {
         try {
             db.beginTransactionNonExclusive();
             ContentValues values = new ContentValues();
             values.put(KEY_PLAYED_DURATION, 0);
+            values.put(KEY_AD_SEGMENT_COUNT, 0);
+            values.put(KEY_AD_TOTAL_DURATION, 0);
             db.update(TABLE_NAME_FEED_MEDIA, values, null, new String[0]);
             db.setTransactionSuccessful();
         } catch (SQLException e) {
@@ -1271,6 +1289,8 @@ public class PodDBAdapter {
                                 + " THEN 1 ELSE 0 END) AS num_downloaded, "
                         + "SUM(CASE WHEN " + TABLE_NAME_FEED_MEDIA + "." + KEY_DOWNLOAD_DATE + " > 0"
                                 + " THEN " + TABLE_NAME_FEED_MEDIA + "." + KEY_SIZE + " ELSE 0 END) AS download_size, "
+                        + "IFNULL(SUM(" + TABLE_NAME_FEED_MEDIA + "." + KEY_AD_SEGMENT_COUNT + "), 0) AS ad_segments, "
+                        + "IFNULL(SUM(" + TABLE_NAME_FEED_MEDIA + "." + KEY_AD_TOTAL_DURATION + "), 0) AS ad_duration, "
                         + "SUM(CASE WHEN " + TABLE_NAME_FEED_ITEMS + "." + KEY_READ + " != " + FeedItem.PLAYED
                                 + " AND " + TABLE_NAME_FEED_ITEMS + "." + KEY_PUBDATE + " >= " + sixMonthsAgo
                                 + " THEN 1 ELSE 0 END) AS num_recent_unplayed "

@@ -89,10 +89,16 @@ Upstream files that were modified:
 - `playback/service/src/main/java/de/danoeh/antennapod/playback/service/Media3PlaybackService.java`
 - `README.md`
 - `settings.gradle`
+- `storage/database/src/main/java/de/danoeh/antennapod/storage/database/DBReader.java`
 - `storage/database/src/main/java/de/danoeh/antennapod/storage/database/DBUpgrader.java`
 - `storage/database/src/main/java/de/danoeh/antennapod/storage/database/DBWriter.java`
 - `storage/database/src/main/java/de/danoeh/antennapod/storage/database/mapper/FeedPreferencesCursor.java`
 - `storage/database/src/main/java/de/danoeh/antennapod/storage/database/PodDBAdapter.java`
+- `storage/database/src/main/java/de/danoeh/antennapod/storage/database/StatisticsItem.java`
+- `storage/database/src/test/java/de/danoeh/antennapod/storage/database/DBReaderAdStatsTest.java`
+- `storage/database/src/test/java/de/danoeh/antennapod/storage/database/DBWriterAdStatsTest.java`
+- `storage/database/src/test/java/de/danoeh/antennapod/storage/database/PodDBAdapterAdStatsTest.java`
+- `storage/database/src/test/java/de/danoeh/antennapod/storage/database/StatisticsItemTest.java`
 - `storage/importexport/build.gradle`
 - `ui/common/src/main/java/de/danoeh/antennapod/ui/common/CircularProgressBar.java`
 - `ui/common/src/main/res/values/colors.xml`
@@ -100,3 +106,8 @@ Upstream files that were modified:
 - `ui/preferences/src/main/res/values/arrays.xml`
 - `ui/preferences/src/main/res/xml/preferences_import_export.xml`
 - `ui/preferences/src/main/res/xml/preferences.xml`
+- `ui/statistics/src/main/java/de/danoeh/antennapod/ui/statistics/feed/FeedStatisticsFragment.java`
+- `ui/statistics/src/main/java/de/danoeh/antennapod/ui/statistics/StatisticsListAdapter.java`
+- `ui/statistics/src/main/java/de/danoeh/antennapod/ui/statistics/subscriptions/PlaybackStatisticsListAdapter.java`
+- `ui/statistics/src/main/res/layout/feed_statistics.xml`
+- `ui/statistics/src/main/res/layout/statistics_listitem.xml`

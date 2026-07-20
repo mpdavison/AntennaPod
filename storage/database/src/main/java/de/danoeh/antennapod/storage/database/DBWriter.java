@@ -960,6 +960,15 @@ public class DBWriter {
         });
     }
 
+    public static Future<?> setFeedMediaAdStats(long mediaId, int segmentCount, long totalDurationMs) {
+        return runOnDbThread(() -> {
+            PodDBAdapter adapter = PodDBAdapter.getInstance();
+            adapter.open();
+            adapter.setFeedMediaAdStats(mediaId, segmentCount, totalDurationMs);
+            adapter.close();
+        });
+    }
+
     /**
      * Removes the feed with the given download url. This method should NOT be executed on the GUI thread.
      *
