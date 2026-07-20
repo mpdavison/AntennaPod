@@ -73,5 +73,5 @@ You can build this fork just like the original AntennaPod — it's a standard An
 
 ## License
 
-AntennaPod is licensed under the GNU General Public License (GPL-3.0). See the [LICENSE](https://github.com/AntennaPod/AntennaPod/blob/develop/LICENSE) file.
+Just like the official AntennaPod project, this fork is licensed under the GNU General Public License (GPL-3.0). See the [LICENSE](https://github.com/AntennaPod/AntennaPod/blob/develop/LICENSE) file.
 This fork's modifications are documented in [CHANGES.md](CHANGES.md).
