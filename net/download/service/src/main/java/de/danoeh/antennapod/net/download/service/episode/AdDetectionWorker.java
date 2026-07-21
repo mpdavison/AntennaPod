@@ -233,7 +233,10 @@ public class AdDetectionWorker extends Worker {
                 isDownloaded = true;
             } catch (IOException e) {
                 Log.w(TAG, "Failed to download audio: " + e.getMessage());
-                audioFile.delete();
+                boolean deleted = audioFile.delete();
+                if (!deleted) {
+                    Log.w(TAG, "Failed to delete temp audio file after download error");
+                }
                 return Result.success();
             }
         }
@@ -263,7 +266,10 @@ public class AdDetectionWorker extends Worker {
                     EventBus.getDefault().post(new AdDetectionProgressEvent(
                             Collections.singleton(feedMediaId)));
                     if (isDownloaded && audioFile != null) {
-                        audioFile.delete();
+                        boolean deleted = audioFile.delete();
+                        if (!deleted) {
+                            Log.w(TAG, "Failed to delete temp audio after nostr match");
+                        }
                     }
                     return Result.success();
                 }
@@ -497,10 +503,16 @@ public class AdDetectionWorker extends Worker {
                 chunks.add(new AudioChunk(chunkFile, currentStartUs / 1_000_000.0, true));
             } catch (Exception e) {
                 Log.w(TAG, "Muxer failed for chunk " + chunkIdx + ": " + e.getMessage());
-                chunkFile.delete();
+                boolean deleted = chunkFile.delete();
+                if (!deleted) {
+                    Log.w(TAG, "Failed to delete chunk file: " + chunkFile);
+                }
                 for (AudioChunk c : chunks) {
                     if (c.isTemp) {
-                        c.file.delete();
+                        deleted = c.file.delete();
+                        if (!deleted) {
+                            Log.w(TAG, "Failed to delete chunk: " + c.file);
+                        }
                     }
                 }
                 return Collections.singletonList(new AudioChunk(audioFile, 0, false));
@@ -855,7 +867,9 @@ public class AdDetectionWorker extends Worker {
         }
 
         File tmpFile = new File(outFile.getParent(), outFile.getName() + ".tmp");
-        tmpFile.getParentFile().mkdirs();
+        if (!tmpFile.getParentFile().mkdirs() && !tmpFile.getParentFile().isDirectory()) {
+            Log.w(TAG, "Failed to create timestamps directory");
+        }
         try (FileOutputStream fos = new FileOutputStream(tmpFile)) {
             fos.write(root.toString().getBytes(StandardCharsets.UTF_8));
         }
@@ -868,7 +882,10 @@ public class AdDetectionWorker extends Worker {
                     fos.write(buf, 0, read);
                 }
             } finally {
-                tmpFile.delete();
+                boolean deleted = tmpFile.delete();
+                if (!deleted) {
+                    Log.w(TAG, "Failed to delete temp timestamps file");
+                }
             }
         }
     }
