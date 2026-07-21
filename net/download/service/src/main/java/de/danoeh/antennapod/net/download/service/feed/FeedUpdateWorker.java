@@ -1,5 +1,6 @@
 package de.danoeh.antennapod.net.download.service.feed;
 
+import android.annotation.SuppressLint;
 import android.Manifest;
 import android.app.Notification;
 import android.content.Context;
@@ -155,6 +156,7 @@ public class FeedUpdateWorker extends Worker {
 
     @NonNull
     @Override
+    @SuppressLint("InlinedApi")
     public ListenableFuture<ForegroundInfo> getForegroundInfoAsync() {
         return Futures.immediateFuture(new ForegroundInfo(R.id.notification_updating_feeds, createNotification(null),
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC));

@@ -1,6 +1,7 @@
 package de.danoeh.antennapod.net.download.service.episode;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -131,6 +132,7 @@ public class EpisodeDownloadWorker extends Worker {
 
     @NonNull
     @Override
+    @SuppressLint("InlinedApi")
     public ListenableFuture<ForegroundInfo> getForegroundInfoAsync() {
         return Futures.immediateFuture(
                 new ForegroundInfo(R.id.notification_downloading, generateProgressNotification(),

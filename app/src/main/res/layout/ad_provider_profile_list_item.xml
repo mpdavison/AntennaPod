@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
@@ -26,6 +27,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textAppearance="?attr/textAppearanceCaption" />
+
     </LinearLayout>
 
     <ImageView
@@ -36,4 +38,5 @@
         android:contentDescription="@string/pref_ad_profile_active"
         android:src="@drawable/ic_check"
         android:visibility="gone" />
+
 </LinearLayout>

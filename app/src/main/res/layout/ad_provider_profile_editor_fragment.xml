@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -24,12 +25,14 @@
             android:layout_marginBottom="8dp"
             android:hint="@string/pref_ad_profile_name"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/nameInput"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="text"
                 android:singleLine="true" />
+
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.textfield.TextInputLayout
@@ -38,11 +41,13 @@
             android:layout_marginBottom="8dp"
             android:hint="@string/pref_ad_provider_title"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
+
             <AutoCompleteTextView
                 android:id="@+id/typeInput"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="none" />
+
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.textfield.TextInputLayout
@@ -53,12 +58,14 @@
             android:hint="@string/pref_ad_base_url_title"
             android:visibility="gone"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/baseUrlInput"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="textUri"
                 android:singleLine="true" />
+
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.textfield.TextInputLayout
@@ -68,12 +75,14 @@
             android:hint="@string/pref_ad_api_key_title"
             app:passwordToggleEnabled="true"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/apiKeyInput"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="textPassword"
                 android:singleLine="true" />
+
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.textfield.TextInputLayout
@@ -82,12 +91,14 @@
             android:layout_marginBottom="8dp"
             android:hint="@string/pref_ad_model_title"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/modelInput"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="text"
                 android:singleLine="true" />
+
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.textfield.TextInputLayout
@@ -98,6 +109,7 @@
             android:hint="@string/pref_ad_prompt_title"
             android:visibility="gone"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/promptInput"
                 android:layout_width="match_parent"
@@ -106,6 +118,7 @@
                 android:inputType="textMultiLine|textCapSentences"
                 android:minLines="12"
                 android:scrollbars="vertical" />
+
         </com.google.android.material.textfield.TextInputLayout>
 
         <LinearLayout
@@ -115,10 +128,10 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/deleteButton"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/delete_label" />
+                android:text="@string/delete_label"
+                style="@style/Widget.MaterialComponents.Button.TextButton" />
 
             <View
                 android:layout_width="0dp"
@@ -130,6 +143,9 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/confirm_label" />
+
         </LinearLayout>
+
     </LinearLayout>
+
 </ScrollView>

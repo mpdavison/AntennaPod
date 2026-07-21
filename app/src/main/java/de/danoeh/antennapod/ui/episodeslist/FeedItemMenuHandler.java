@@ -241,7 +241,10 @@ public class FeedItemMenuHandler {
         } else if (menuItemId == R.id.clear_ad_timestamps_item) {
             FeedMedia media = selectedItem.getMedia();
             if (media != null) {
-                AdDetectionManager.adTimestampsFileFor(context, media).delete();
+                boolean deleted = AdDetectionManager.adTimestampsFileFor(context, media).delete();
+                if (!deleted) {
+                    Log.w(TAG, "Failed to delete ad timestamps file");
+                }
                 AdDetectionManager.setProgress(media.getId(), -1);
                 DBWriter.setFeedMediaAdStats(media.getId(), 0, 0);
                 EventBus.getDefault().post(new AdDetectionProgressEvent(Collections.singleton(media.getId())));

@@ -79,11 +79,6 @@
     <string name="configure_home">Configure home screen</string>
     <string name="section_hidden">Hidden</string>
     <string name="section_shown">Shown</string>
-    <string name="episodes_label_more">Episodes »</string>
-    <string name="queue_label_more">Queue »</string>
-    <string name="inbox_label_more">Inbox »</string>
-    <string name="downloads_label_more">Downloads »</string>
-    <string name="subscriptions_label_more">Subscriptions »</string>
 
     <!-- Download Statistics fragment -->
     <plurals name="total_size_downloaded_podcasts">
@@ -598,7 +593,7 @@
     <string name="pref_ad_base_url_sum">OpenAI-compatible base URL, e.g. https://api.openai.com/v1</string>
     <string name="pref_ad_model_title">Model</string>
     <string name="pref_ad_model_sum_transcription">Leave empty to use provider default (whisper-1 / whisper-large-v3-turbo)</string>
-    <string name="pref_ad_model_sum_chat">Leave empty to use provider default (gpt-4o-mini / llama-3.3-70b-versatile)</string>
+    <string name="pref_ad_model_sum_chat" tools:ignore="TypographyDashes">Leave empty to use provider default (gpt-4o-mini / llama-3.3-70b-versatile)</string>
     <string name="pref_ad_prompt_category">Prompt</string>
     <string name="pref_ad_prompt_title">Classification prompt</string>
     <string name="pref_ad_prompt_sum">Prompt sent to the chat model to identify ad segments. Leave empty to use the built-in default.</string>

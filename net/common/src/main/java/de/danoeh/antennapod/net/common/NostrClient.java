@@ -106,14 +106,14 @@ public class NostrClient {
             new SecureRandom().nextBytes(auxRand);
 
             MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
-            byte[] dBytes = bigIntToBytes(d, 32);
+            byte[] derivedBytes = bigIntToBytes(d, 32);
 
             byte[] tagHash = sha256.digest(
                     "BIP0340/nonce".getBytes(StandardCharsets.UTF_8));
             sha256.reset();
             sha256.update(tagHash);
             sha256.update(tagHash);
-            sha256.update(dBytes);
+            sha256.update(derivedBytes);
             sha256.update(message);
             sha256.update(auxRand);
             BigInteger k = new BigInteger(1, sha256.digest()).mod(N);
@@ -121,15 +121,15 @@ public class NostrClient {
                 k = BigInteger.ONE;
             }
 
-            ECPoint rPoint = G.multiply(k).normalize();
-            BigInteger rx = rPoint.getAffineXCoord().toBigInteger();
-            if (rPoint.getAffineYCoord().toBigInteger().testBit(0)) {
+            ECPoint restoredPoint = G.multiply(k).normalize();
+            BigInteger rx = restoredPoint.getAffineXCoord().toBigInteger();
+            if (restoredPoint.getAffineYCoord().toBigInteger().testBit(0)) {
                 k = N.subtract(k);
             }
 
             BigInteger pubX = G.multiply(d).normalize().getAffineXCoord().toBigInteger();
-            byte[] rxBytes = bigIntToBytes(rx, 32);
-            byte[] pxBytes = bigIntToBytes(pubX, 32);
+            final byte[] rxBytes = bigIntToBytes(rx, 32);
+            final byte[] pxBytes = bigIntToBytes(pubX, 32);
 
             tagHash = sha256.digest(
                     "BIP0340/challenge".getBytes(StandardCharsets.UTF_8));
@@ -200,7 +200,7 @@ public class NostrClient {
             event.put("content", content);
             event.put("sig", sig);
             return event;
-        } catch (Exception e) {
+        } catch (IOException | NoSuchAlgorithmException | JSONException e) {
             throw new RuntimeException("Failed to build Nostr event", e);
         }
     }

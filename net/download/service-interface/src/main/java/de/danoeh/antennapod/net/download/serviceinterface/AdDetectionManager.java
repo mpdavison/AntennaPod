@@ -1,6 +1,7 @@
 package de.danoeh.antennapod.net.download.serviceinterface;
 
 import android.content.Context;
+import android.util.Log;
 import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.ui.i18n.R;
@@ -39,7 +40,8 @@ public abstract class AdDetectionManager {
     }
 
     public static int getProgress(long mediaId) {
-        return progressMap.getOrDefault(mediaId, -1);
+        Integer progress = progressMap.get(mediaId);
+        return progress != null ? progress : -1;
     }
 
     public static long[] getAdSummary(Context context, FeedMedia media) {
@@ -105,9 +107,13 @@ public abstract class AdDetectionManager {
         }
     }
 
+    private static final String TAG = "AdDetectionManager";
+
     public static File adTimestampsFileFor(Context context, FeedMedia media) {
         File dir = new File(context.getCacheDir(), "adtimestamps");
-        dir.mkdirs();
+        if (!dir.mkdirs() && !dir.isDirectory()) {
+            Log.w(TAG, "Failed to create adtimestamps directory");
+        }
         return new File(dir, media.getId() + ".adtimestamps");
     }
 

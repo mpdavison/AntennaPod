@@ -10,6 +10,7 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
 import android.content.pm.ServiceInfo;
+import android.annotation.SuppressLint;
 import androidx.core.app.NotificationCompat;
 import androidx.work.Data;
 import androidx.work.ExistingWorkPolicy;
@@ -143,6 +144,7 @@ public class AdDetectionWorker extends Worker {
                         .build());
     }
 
+    @SuppressLint("InlinedApi")
     @NonNull
     @Override
     public ListenableFuture<ForegroundInfo> getForegroundInfoAsync() {
@@ -189,7 +191,10 @@ public class AdDetectionWorker extends Worker {
         if (AdDetectionManager.isAdDetectionComplete(getApplicationContext(), media)) {
             return Result.success();
         }
-        AdDetectionManager.adTimestampsFileFor(getApplicationContext(), media).delete();
+        File tmp = AdDetectionManager.adTimestampsFileFor(getApplicationContext(), media);
+        if (!tmp.delete()) {
+            Log.w(TAG, "Failed to delete old timestamps file");
+        }
         String transcriptionApiKey = AdDetectionPreferences.getTranscriptionApiKey();
         String chatApiKey = AdDetectionPreferences.getChatApiKey();
         if (transcriptionApiKey.isEmpty() || chatApiKey.isEmpty()) {
@@ -236,7 +241,7 @@ public class AdDetectionWorker extends Worker {
         String md5Hash = null;
         try {
             md5Hash = NostrClient.computeAudioMd5(audioFile);
-        } catch (Exception e) {
+        } catch (IOException e) {
             Log.w(TAG, "Failed to compute MD5: " + e.getMessage());
         }
 
@@ -304,10 +309,10 @@ public class AdDetectionWorker extends Worker {
             String chatBaseUrl = AdDetectionPreferences.getChatBaseUrl();
             String chatModel = AdDetectionPreferences.getChatModel();
             String chatPrompt = AdDetectionPreferences.getChatPrompt();
-            List<long[]> ads = classifyAds(allSegments, client,
-                    chatApiKey, chatBaseUrl, chatModel, chatPrompt);
             completedSteps++;
             reportProgress(feedMediaId, completedSteps, totalSteps);
+            List<long[]> ads = classifyAds(allSegments, client,
+                    chatApiKey, chatBaseUrl, chatModel, chatPrompt);
 
             Log.i(TAG, "Validating ad segments with second pass");
             ads = validateAds(allSegments, ads, client,
@@ -346,12 +351,18 @@ public class AdDetectionWorker extends Worker {
             if (chunks != null) {
                 for (AudioChunk chunk : chunks) {
                     if (chunk.isTemp) {
-                        chunk.file.delete();
+                        boolean deleted = chunk.file.delete();
+                        if (!deleted) {
+                            Log.w(TAG, "Failed to delete temp chunk: " + chunk.file);
+                        }
                     }
                 }
             }
             if (isDownloaded && audioFile != null) {
-                audioFile.delete();
+                boolean deleted = audioFile.delete();
+                if (!deleted) {
+                    Log.w(TAG, "Failed to delete temp audio: " + audioFile);
+                }
             }
         }
         return Result.success();
@@ -436,6 +447,7 @@ public class AdDetectionWorker extends Worker {
         }
     }
 
+    @SuppressLint("WrongConstant")
     private List<AudioChunk> splitWithMuxer(File audioFile, MediaFormat audioFormat,
             int audioTrackIndex, long durationUs) {
         long fileSizeBytes = audioFile.length();
@@ -496,7 +508,11 @@ public class AdDetectionWorker extends Worker {
                 extractor.release();
                 if (muxer != null) {
                     if (muxerStarted) {
-                        try { muxer.stop(); } catch (Exception ignored) { }
+                        try {
+                            muxer.stop();
+                        } catch (Exception ignored) {
+                            // ignored
+                        }
                     }
                     muxer.release();
                 }
@@ -518,6 +534,9 @@ public class AdDetectionWorker extends Worker {
         chunkDurationUs = Math.max(chunkDurationUs, TimeUnit.MINUTES.toMicros(1));
 
         MediaExtractor extractor = new MediaExtractor();
+        FileOutputStream currentOut = null;
+        File currentFile = null;
+
         try {
             extractor.setDataSource(audioFile.getAbsolutePath());
             int audioTrack = -1;
@@ -538,8 +557,6 @@ public class AdDetectionWorker extends Worker {
             int chunkIdx = 0;
             long chunkStartUs = 0;
             long chunkBytesWritten = 0;
-            FileOutputStream currentOut = null;
-            File currentFile = null;
             ByteBuffer buffer = ByteBuffer.allocate(512 * 1024);
 
             while (true) {
@@ -581,11 +598,20 @@ public class AdDetectionWorker extends Worker {
             Log.w(TAG, "Split by extractor failed: " + e.getMessage());
             for (AudioChunk c : chunks) {
                 if (c.isTemp) {
-                    c.file.delete();
+                    boolean deleted = c.file.delete();
+                    if (!deleted) {
+                        Log.w(TAG, "Failed to delete temp chunk: " + c.file);
+                    }
                 }
             }
             return Collections.singletonList(new AudioChunk(audioFile, 0, false));
         } finally {
+            if (currentOut != null) {
+                try {
+                    currentOut.close();
+                } catch (IOException expected) {
+                }
+            }
             extractor.release();
         }
 
@@ -797,7 +823,7 @@ public class AdDetectionWorker extends Worker {
             return ads;
         }
         List<long[]> sorted = new ArrayList<>(ads);
-        sorted.sort((a, b) -> Long.compare(a[0], b[0]));
+        Collections.sort(sorted, (a, b) -> Long.compare(a[0], b[0]));
         List<long[]> merged = new ArrayList<>();
         merged.add(sorted.get(0).clone());
         for (int i = 1; i < sorted.size(); i++) {

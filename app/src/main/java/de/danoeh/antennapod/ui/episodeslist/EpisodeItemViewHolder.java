@@ -114,7 +114,8 @@ public class EpisodeItemViewHolder extends RecyclerView.ViewHolder {
 
         if (item.getMedia() != null && AdDetectionManager.isAdDetectionComplete(activity, item.getMedia())) {
             secondaryActionIcon.setImageTintList(
-                    ColorStateList.valueOf(activity.getResources().getColor(R.color.ad_detection_complete, activity.getTheme())));
+                    ColorStateList.valueOf(activity.getResources().getColor(
+                            R.color.ad_detection_complete, activity.getTheme())));
         } else {
             secondaryActionIcon.setImageTintList(null);
         }
