@@ -439,7 +439,6 @@
     <string name="no_all_episodes_label">When you add a podcast, the episodes will be shown here.</string>
     <string name="no_all_episodes_filtered_label">Try clearing the filter to see more episodes.</string>
     <string name="no_inbox_head_label">No episodes in the inbox</string>
-    <string name="no_inbox_label">When new episodes arrive, they will be shown here. You can then decide if you are interested in them or not.</string>
     <string name="no_subscriptions_head_label">No subscriptions</string>
     <string name="no_subscriptions_label">To subscribe to a podcast, press the plus icon below.</string>
     <string name="no_archive_head_label">Nothing archived</string>
@@ -551,8 +550,6 @@
     <string name="pref_feed_skip_sum">Skip introductions and ending credits</string>
     <string name="pref_feed_skip_ending">Skip last</string>
     <string name="pref_feed_skip_intro">Skip first</string>
-    <string name="pref_feed_skip_ending_toast">Skipped last %d seconds</string>
-    <string name="pref_feed_skip_intro_toast">Skipped first %d seconds</string>
     <string name="ad_skip_toast">Skipping ad (%s)</string>
     <plurals name="pref_feed_skip_ending_snackbar">
         <item quantity="one">Skipped last %d second</item>
@@ -586,14 +583,8 @@
     <string name="pref_ad_provider_title">Provider</string>
     <string name="pref_ad_provider_custom">Custom</string>
     <string name="pref_ad_api_key_title">API key</string>
-    <string name="pref_ad_api_key_not_set">Not set</string>
-    <string name="pref_ad_api_key_set">Set</string>
     <string name="pref_ad_base_url_title">Base URL</string>
-    <string name="pref_ad_base_url_sum">OpenAI-compatible base URL, e.g. https://api.openai.com/v1</string>
     <string name="pref_ad_model_title">Model</string>
-    <string name="pref_ad_model_sum_transcription">Leave empty to use provider default (whisper-1 / whisper-large-v3-turbo)</string>
-    <string name="pref_ad_model_sum_chat" tools:ignore="TypographyDashes">Leave empty to use provider default (gpt-4o-mini / llama-3.3-70b-versatile)</string>
-    <string name="pref_ad_prompt_category">Prompt</string>
     <string name="pref_ad_prompt_title">Classification prompt</string>
     <string name="pref_ad_prompt_sum">Prompt sent to the chat model to identify ad segments. Leave empty to use the built-in default.</string>
     <string name="pref_ad_active_profile_title">Active profile</string>
