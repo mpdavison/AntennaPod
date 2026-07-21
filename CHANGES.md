@@ -70,9 +70,11 @@ Upstream files that were modified:
 - `app/src/main/res/layout/item_description_fragment.xml`
 - `app/src/main/res/menu/feeditemlist_context.xml`
 - `app/src/main/res/menu/feeditem_options.xml`
+- `app/src/main/res/xml/actions.xml`
 - `app/src/main/res/xml/feed_settings.xml`
 - `common.gradle`
 - `.gitignore`
+- `config/spotbugs/exclude.xml`
 - `gradle/libs.versions.toml`
 - `model/src/main/java/de/danoeh/antennapod/model/feed/FeedPreferences.java`
 - `net/common/build.gradle`
