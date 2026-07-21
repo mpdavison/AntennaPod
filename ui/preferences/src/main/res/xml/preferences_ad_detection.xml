@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen
+        xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <SwitchPreferenceCompat
+            android:key="prefAdDetectionEnabled"
+            android:title="@string/pref_ad_detection_enabled_title"
+            android:summary="@string/pref_ad_detection_enabled_sum"
+            android:defaultValue="false"/>
+
+    <SwitchPreferenceCompat
+            android:key="prefAdMartyrEnabled"
+            android:title="@string/pref_ad_martyr_enabled_title"
+            android:summary="@string/pref_ad_martyr_enabled_sum"
+            android:dependency="prefAdDetectionEnabled"
+            android:defaultValue="false"/>
+
+    <PreferenceCategory
+            android:key="prefAdTranscriptionCategory"
+            android:title="@string/pref_ad_transcription_category">
+        <de.danoeh.antennapod.ui.preferences.preference.MaterialListPreference
+                android:key="prefAdTranscriptionActiveProfile"
+                android:title="@string/pref_ad_active_profile_title"/>
+        <Preference
+                android:key="prefAdTranscriptionManage"
+                android:title="@string/pref_ad_manage_profiles_title"/>
+    </PreferenceCategory>
+
+    <PreferenceCategory
+            android:key="prefAdChatCategory"
+            android:title="@string/pref_ad_chat_category">
+        <de.danoeh.antennapod.ui.preferences.preference.MaterialListPreference
+                android:key="prefAdChatActiveProfile"
+                android:title="@string/pref_ad_active_profile_title"/>
+        <Preference
+                android:key="prefAdChatManage"
+                android:title="@string/pref_ad_manage_profiles_title"/>
+    </PreferenceCategory>
+
+    <PreferenceCategory
+            android:key="prefNostrCategory"
+            android:title="@string/pref_nostr_category">
+
+        <SwitchPreferenceCompat
+                android:key="prefNostrEnabled"
+                android:title="@string/pref_nostr_enabled_title"
+                android:summary="@string/pref_nostr_enabled_sum"
+                android:defaultValue="true"/>
+
+    </PreferenceCategory>
+
+</PreferenceScreen>

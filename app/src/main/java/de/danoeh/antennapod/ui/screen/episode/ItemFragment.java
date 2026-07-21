@@ -35,6 +35,7 @@ import de.danoeh.antennapod.actionbutton.StreamActionButton;
 import de.danoeh.antennapod.actionbutton.VisitWebsiteActionButton;
 import de.danoeh.antennapod.activity.MainActivity;
 import de.danoeh.antennapod.databinding.FeeditemFragmentBinding;
+import de.danoeh.antennapod.event.AdDetectionProgressEvent;
 import de.danoeh.antennapod.ui.common.ClipboardUtils;
 import de.danoeh.antennapod.event.EpisodeDownloadEvent;
 import de.danoeh.antennapod.event.FeedItemEvent;
@@ -44,9 +45,9 @@ import de.danoeh.antennapod.event.PlayerStatusEvent;
 import de.danoeh.antennapod.model.feed.Feed;
 import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
+import de.danoeh.antennapod.net.download.serviceinterface.AdDetectionManager;
 import de.danoeh.antennapod.net.download.serviceinterface.DownloadServiceInterface;
 import de.danoeh.antennapod.playback.service.PlaybackController;
-import de.danoeh.antennapod.playback.service.PlaybackService;
 import de.danoeh.antennapod.playback.service.PlaybackStatus;
 import de.danoeh.antennapod.storage.database.DBReader;
 import de.danoeh.antennapod.storage.preferences.UsageStatistics;
@@ -61,6 +62,7 @@ import de.danoeh.antennapod.ui.episodes.ImageResourceUtils;
 import de.danoeh.antennapod.ui.screen.feed.FeedItemlistFragment;
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
 import io.reactivex.rxjava3.core.Maybe;
+import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 import org.greenrobot.eventbus.EventBus;
@@ -68,8 +70,10 @@ import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Locale;
-import java.util.Objects;
+
+import org.json.JSONObject;
 
 /**
  * Displays information about a FeedItem and actions.
@@ -101,6 +105,7 @@ public class ItemFragment extends Fragment {
     private ItemActionButton actionButton1;
     private ItemActionButton actionButton2;
     private Disposable disposable;
+    private int loadGeneration = 0;
     private FeeditemFragmentBinding viewBinding;
 
     @Override
@@ -119,21 +124,11 @@ public class ItemFragment extends Fragment {
         viewBinding.txtvTitle.setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_FULL);
         viewBinding.txtvTitle.setEllipsize(TextUtils.TruncateAt.END);
         viewBinding.webvDescription.setTimecodeSelectedListener(time -> {
-            if (!PlaybackService.isRunning) {
-                EventBus.getDefault().post(
-                        new MessageEvent(getString(R.string.play_this_to_seek_position_message)));
-                return;
-            }
-            if (BuildConfig.USE_MEDIA3_PLAYBACK_SERVICE) {
-                PlaybackController.bindToMedia3Service(getActivity(), controller ->
-                        controller.seekTo(time));
-                return;
-            }
-            PlaybackController.bindToService(getActivity(), playbackService -> {
-                if (item.getMedia() != null && playbackService.getPlayable() != null
-                        && Objects.equals(item.getMedia().getIdentifier(),
-                        playbackService.getPlayable().getIdentifier())) {
-                    playbackService.seekTo(time);
+            PlaybackController.bindToMedia3Service(getActivity(), controller -> {
+                if (item.getMedia() != null && controller.getCurrentMediaItem() != null
+                        && String.valueOf(item.getMedia().getId())
+                        .equals(controller.getCurrentMediaItem().mediaId)) {
+                    controller.seekTo(time);
                 } else {
                     EventBus.getDefault().post(
                             new MessageEvent(getString(R.string.play_this_to_seek_position_message)));
@@ -236,7 +231,10 @@ public class ItemFragment extends Fragment {
         if (disposable != null) {
             disposable.dispose();
         }
-        viewBinding.contentRoot.removeView(viewBinding.webvDescription);
+        ViewGroup parent = (ViewGroup) viewBinding.webvDescription.getParent();
+        if (parent != null) {
+            parent.removeView(viewBinding.webvDescription);
+        }
         viewBinding.webvDescription.destroy();
         viewBinding = null;
     }
@@ -279,6 +277,18 @@ public class ItemFragment extends Fragment {
                 .apply(options)
                 .into(viewBinding.imgvCover);
         updateButtons();
+        updateAdSummary();
+    }
+
+    private void updateAdSummary() {
+        if (item == null || !item.hasMedia()) {
+            return;
+        }
+        String summaryHtml = AdDetectionManager.buildAdSummaryHtml(getContext(), item.getMedia());
+        String content = summaryHtml != null ? summaryHtml : "";
+        String escaped = JSONObject.quote(content);
+        viewBinding.webvDescription.evaluateJavascript(
+                "document.getElementById('adSummary').innerHTML = " + escaped + ";", null);
     }
 
     private void updateButtons() {
@@ -388,6 +398,20 @@ public class ItemFragment extends Fragment {
         }
         if (itemsLoaded && getActivity() != null) {
             updateButtons();
+            updateAdSummary();
+        }
+    }
+
+    @Subscribe(sticky = true, threadMode = ThreadMode.MAIN)
+    public void onAdDetectionProgress(AdDetectionProgressEvent event) {
+        if (item == null || item.getMedia() == null) {
+            return;
+        }
+        if (event.getMediaIds().contains(item.getMedia().getId())) {
+            if (itemsLoaded && getActivity() != null) {
+                updateButtons();
+                updateAdSummary();
+            }
         }
     }
 
@@ -403,10 +427,15 @@ public class ItemFragment extends Fragment {
         if (!itemsLoaded) {
             viewBinding.progbarLoading.setVisibility(View.VISIBLE);
         }
-        disposable = Maybe.fromCallable(this::loadInBackground)
+        loadGeneration++;
+        final int generation = loadGeneration;
+        disposable = Observable.fromCallable(this::loadInBackground)
             .subscribeOn(Schedulers.computation())
             .observeOn(AndroidSchedulers.mainThread())
             .subscribe(result -> {
+                if (generation != loadGeneration) {
+                    return;
+                }
                 viewBinding.progbarLoading.setVisibility(View.GONE);
                 viewBinding.header.setVisibility(View.VISIBLE);
                 item = result;
@@ -425,8 +454,16 @@ public class ItemFragment extends Fragment {
             DBReader.loadDescriptionOfFeedItem(feedItem);
             ShownotesCleaner t = new ShownotesCleaner(context, feedItem.getDescription(), duration);
             webviewData = t.processShownotes();
+            appendAdSummaryToWebviewData(context, feedItem);
         }
         return feedItem;
     }
 
+    private void appendAdSummaryToWebviewData(Context context, FeedItem feedItem) {
+        if (feedItem.getMedia() == null || webviewData == null) {
+            return;
+        }
+        webviewData = AdDetectionManager.appendAdSummaryToWebviewData(
+                context, feedItem.getMedia(), webviewData);
+    }
 }

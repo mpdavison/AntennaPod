@@ -5,16 +5,21 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import de.danoeh.antennapod.net.download.service.episode.autodownload.AutoDownloadManagerImpl;
 import de.danoeh.antennapod.net.download.service.feed.FeedUpdateManagerImpl;
+import de.danoeh.antennapod.net.download.service.episode.AdDetectionWorker;
+import de.danoeh.antennapod.net.download.serviceinterface.AdDetectionManager;
 import de.danoeh.antennapod.net.download.serviceinterface.AutoDownloadManager;
+import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.net.download.serviceinterface.FeedUpdateManager;
 import de.danoeh.antennapod.net.sync.service.SynchronizationQueueImpl;
 import de.danoeh.antennapod.net.sync.serviceinterface.SynchronizationQueue;
 import de.danoeh.antennapod.storage.preferences.SynchronizationSettings;
 import de.danoeh.antennapod.storage.preferences.SynchronizationCredentials;
+import de.danoeh.antennapod.storage.preferences.AdDetectionPreferences;
 import de.danoeh.antennapod.storage.preferences.PlaybackPreferences;
 import de.danoeh.antennapod.storage.preferences.SleepTimerPreferences;
 import de.danoeh.antennapod.storage.preferences.UsageStatistics;
 import de.danoeh.antennapod.net.common.UserAgentInterceptor;
+import de.danoeh.antennapod.net.common.NostrPreferences;
 import de.danoeh.antennapod.storage.preferences.UserPreferences;
 import de.danoeh.antennapod.net.common.AntennapodHttpClient;
 import de.danoeh.antennapod.net.download.serviceinterface.DownloadServiceInterface;
@@ -41,15 +46,25 @@ public class ClientConfigurator {
         }
         PodDBAdapter.init(context);
         UserPreferences.init(context);
+        AdDetectionPreferences.init(context);
         SynchronizationCredentials.init(context);
         SynchronizationSettings.init(context);
         UsageStatistics.init(context);
         PlaybackPreferences.init(context);
+        NostrPreferences.init(context);
         SslProviderInstaller.install(context);
         NetworkUtils.init(context);
         DownloadServiceInterface.setImpl(new DownloadServiceInterfaceImpl());
         FeedUpdateManager.setInstance(new FeedUpdateManagerImpl());
         AutoDownloadManager.setInstance(new AutoDownloadManagerImpl());
+        AdDetectionManager.setInstance(new AdDetectionManager() {
+            @Override
+            public void enqueueAdDetection(Context ctx, FeedItem item) {
+                if (item.getMedia() != null) {
+                    AdDetectionWorker.enqueue(ctx, item.getMedia().getId());
+                }
+            }
+        });
         SynchronizationQueue.setInstance(new SynchronizationQueueImpl(context));
         AntennapodHttpClient.setCacheDirectory(new File(context.getCacheDir(), "okhttp"));
         AntennapodHttpClient.setProxyConfig(UserPreferences.getProxyConfig());

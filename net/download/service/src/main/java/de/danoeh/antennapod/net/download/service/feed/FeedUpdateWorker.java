@@ -4,6 +4,7 @@ import android.Manifest;
 import android.app.Notification;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.content.pm.ServiceInfo;
 import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -155,7 +156,8 @@ public class FeedUpdateWorker extends Worker {
     @NonNull
     @Override
     public ListenableFuture<ForegroundInfo> getForegroundInfoAsync() {
-        return Futures.immediateFuture(new ForegroundInfo(R.id.notification_updating_feeds, createNotification(null)));
+        return Futures.immediateFuture(new ForegroundInfo(R.id.notification_updating_feeds, createNotification(null),
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC));
     }
 
     private void refreshFeeds(List<Feed> toUpdate, boolean force) {

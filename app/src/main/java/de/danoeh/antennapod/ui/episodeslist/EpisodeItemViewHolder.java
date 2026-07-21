@@ -1,6 +1,7 @@
 package de.danoeh.antennapod.ui.episodeslist;
 
 import android.app.Activity;
+import android.content.res.ColorStateList;
 import android.text.Layout;
 import android.text.format.Formatter;
 import android.util.Log;
@@ -25,6 +26,7 @@ import de.danoeh.antennapod.ui.common.DateFormatter;
 import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.model.playback.MediaType;
+import de.danoeh.antennapod.net.download.serviceinterface.AdDetectionManager;
 import de.danoeh.antennapod.net.download.serviceinterface.DownloadServiceInterface;
 import de.danoeh.antennapod.storage.preferences.UserPreferences;
 import de.danoeh.antennapod.ui.common.Converter;
@@ -110,6 +112,13 @@ public class EpisodeItemViewHolder extends RecyclerView.ViewHolder {
         actionButton.configure(secondaryActionButton, secondaryActionIcon, activity);
         secondaryActionButton.setFocusable(false);
 
+        if (item.getMedia() != null && AdDetectionManager.isAdDetectionComplete(activity, item.getMedia())) {
+            secondaryActionIcon.setImageTintList(
+                    ColorStateList.valueOf(activity.getResources().getColor(R.color.ad_detection_complete, activity.getTheme())));
+        } else {
+            secondaryActionIcon.setImageTintList(null);
+        }
+
         if (item.getMedia() != null) {
             bind(item.getMedia());
         } else {
@@ -140,13 +149,23 @@ public class EpisodeItemViewHolder extends RecyclerView.ViewHolder {
 
         if (DownloadServiceInterface.get().isDownloadingEpisode(media.getDownloadUrl())) {
             float percent = 0.01f * DownloadServiceInterface.get().getProgress(media.getDownloadUrl());
+            secondaryActionProgress.resetColor();
             secondaryActionProgress.setPercentage(Math.max(percent, 0.01f), item);
             secondaryActionProgress.setIndeterminate(
                     DownloadServiceInterface.get().isEpisodeQueued(media.getDownloadUrl()));
         } else if (media.isDownloaded()) {
-            secondaryActionProgress.setPercentage(1, item); // Do not animate 100% -> 0%
-            secondaryActionProgress.setIndeterminate(false);
+            int adProgress = AdDetectionManager.getProgress(media.getId());
+            if (adProgress > 0 && adProgress < 100) {
+                secondaryActionProgress.setColor(activity.getColor(R.color.ad_detection_complete));
+                secondaryActionProgress.setPercentage(adProgress / 100f, item);
+                secondaryActionProgress.setIndeterminate(false);
+            } else {
+                secondaryActionProgress.resetColor();
+                secondaryActionProgress.setPercentage(1, item); // Do not animate 100% -> 0%
+                secondaryActionProgress.setIndeterminate(false);
+            }
         } else {
+            secondaryActionProgress.resetColor();
             secondaryActionProgress.setPercentage(0, item); // Animate X% -> 0%
             secondaryActionProgress.setIndeterminate(false);
         }

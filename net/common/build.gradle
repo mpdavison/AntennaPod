@@ -20,6 +20,7 @@ dependencies {
     annotationProcessor libs.androidx.annotation
     implementation libs.okhttp
     implementation libs.okhttp.urlconnection
+    implementation libs.bcprov
 
     testImplementation libs.junit
     testImplementation libs.robolectric

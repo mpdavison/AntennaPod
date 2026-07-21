@@ -29,6 +29,7 @@ import de.danoeh.antennapod.ui.common.Keyboard;
 import de.danoeh.antennapod.ui.episodeslist.EpisodeItemListAdapter;
 import de.danoeh.antennapod.ui.screen.subscriptions.HorizontalFeedListAdapter;
 import de.danoeh.antennapod.ui.MenuItemUtils;
+import de.danoeh.antennapod.event.AdDetectionProgressEvent;
 import de.danoeh.antennapod.event.EpisodeDownloadEvent;
 import de.danoeh.antennapod.event.FeedItemEvent;
 import de.danoeh.antennapod.event.playback.PlaybackPositionEvent;
@@ -347,6 +348,19 @@ public class SearchFragment extends Fragment implements EpisodeItemListAdapter.O
         }
         for (String downloadUrl : event.getUrls()) {
             int pos = EpisodeDownloadEvent.indexOfItemWithDownloadUrl(results, downloadUrl);
+            if (pos >= 0) {
+                adapter.notifyItemChangedCompat(pos);
+            }
+        }
+    }
+
+    @Subscribe(sticky = true, threadMode = ThreadMode.MAIN)
+    public void onAdDetectionProgress(AdDetectionProgressEvent event) {
+        if (results == null) {
+            return;
+        }
+        for (long mediaId : event.getMediaIds()) {
+            int pos = AdDetectionProgressEvent.indexOfItemWithMediaId(results, mediaId);
             if (pos >= 0) {
                 adapter.notifyItemChangedCompat(pos);
             }

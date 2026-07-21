@@ -14,8 +14,12 @@ import android.view.ViewGroup;
 import androidx.fragment.app.Fragment;
 
 import de.danoeh.antennapod.BuildConfig;
+import org.json.JSONObject;
+
 import de.danoeh.antennapod.R;
+import de.danoeh.antennapod.event.AdDetectionProgressEvent;
 import de.danoeh.antennapod.event.PlayerStatusEvent;
+import de.danoeh.antennapod.net.download.serviceinterface.AdDetectionManager;
 import de.danoeh.antennapod.playback.service.PlaybackController;
 import de.danoeh.antennapod.storage.database.DBReader;
 import de.danoeh.antennapod.storage.preferences.PlaybackPreferences;
@@ -44,6 +48,7 @@ public class ItemDescriptionFragment extends Fragment {
     private ShownotesWebView webvDescription;
     private Disposable webViewLoader;
     private String loadedData = "";
+    private int webViewLoaderGeneration = 0;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -102,6 +107,8 @@ public class ItemDescriptionFragment extends Fragment {
         if (context == null) {
             return;
         }
+        webViewLoaderGeneration++;
+        final int generation = webViewLoaderGeneration;
         webViewLoader = Maybe.<String>create(emitter -> {
             Playable media = DBReader.getFeedMedia(PlaybackPreferences.getCurrentlyPlayingFeedMediaId());
             if (media == null) {
@@ -117,11 +124,18 @@ public class ItemDescriptionFragment extends Fragment {
             }
             ShownotesCleaner shownotesCleaner = new ShownotesCleaner(
                     context, media.getDescription(), media.getDuration());
-            emitter.onSuccess(shownotesCleaner.processShownotes());
+            String data = shownotesCleaner.processShownotes();
+            if (media instanceof FeedMedia) {
+                data = appendAdSummaryToData(context, (FeedMedia) media, data);
+            }
+            emitter.onSuccess(data);
         })
                 .subscribeOn(Schedulers.computation())
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(data -> {
+                    if (generation != webViewLoaderGeneration) {
+                        return;
+                    }
                     if (TextUtils.equals(loadedData, data)) {
                         return;
                     }
@@ -130,6 +144,27 @@ public class ItemDescriptionFragment extends Fragment {
                             "utf-8", "about:blank");
                     Log.d(TAG, "Webview loaded");
                 }, error -> Log.e(TAG, Log.getStackTraceString(error)));
+    }
+
+    private void updateAdSummary() {
+        Context context = getContext();
+        if (context == null) {
+            return;
+        }
+        long mediaId = PlaybackPreferences.getCurrentlyPlayingFeedMediaId();
+        if (mediaId <= 0) {
+            return;
+        }
+        FeedMedia media = DBReader.getFeedMedia(mediaId);
+        String summaryHtml = AdDetectionManager.buildAdSummaryHtml(context, media);
+        String content = summaryHtml != null ? summaryHtml : "";
+        String escaped = JSONObject.quote(content);
+        webvDescription.evaluateJavascript(
+                "document.getElementById('adSummary').innerHTML = " + escaped + ";", null);
+    }
+
+    private static String appendAdSummaryToData(Context context, FeedMedia media, String data) {
+        return AdDetectionManager.appendAdSummaryToWebviewData(context, media, data);
     }
 
     @Override
@@ -195,5 +230,13 @@ public class ItemDescriptionFragment extends Fragment {
     @Subscribe(threadMode = ThreadMode.MAIN)
     public void onPlayerStatusEvent(PlayerStatusEvent event) {
         load();
+    }
+
+    @Subscribe(sticky = true, threadMode = ThreadMode.MAIN)
+    public void onAdDetectionProgress(AdDetectionProgressEvent event) {
+        long mediaId = PlaybackPreferences.getCurrentlyPlayingFeedMediaId();
+        if (mediaId > 0 && event.getMediaIds().contains(mediaId)) {
+            updateAdSummary();
+        }
     }
 }

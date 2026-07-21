@@ -25,6 +25,7 @@ public class MainPreferencesFragment extends AnimatedPreferenceFragment {
     private static final String PREF_SCREEN_PLAYBACK = "prefScreenPlayback";
     private static final String PREF_SCREEN_DOWNLOADS = "prefScreenDownloads";
     private static final String PREF_SCREEN_IMPORT_EXPORT = "prefScreenImportExport";
+    private static final String PREF_SCREEN_AD_DETECTION = "prefScreenAdDetection";
     private static final String PREF_SCREEN_SYNCHRONIZATION = "prefScreenSynchronization";
     private static final String PREF_DOCUMENTATION = "prefDocumentation";
     private static final String PREF_VIEW_FORUM = "prefViewForum";
@@ -51,12 +52,9 @@ public class MainPreferencesFragment extends AnimatedPreferenceFragment {
             findPreference(PREF_CATEGORY_PROJECT).setVisible(false);
             Preference copyrightNotice = new Preference(getContext());
             copyrightNotice.setIcon(R.drawable.ic_info_white);
-            copyrightNotice.getIcon().mutate()
-                    .setColorFilter(new PorterDuffColorFilter(0xffcc0000, PorterDuff.Mode.MULTIPLY));
             copyrightNotice.setSummary("This application is based on AntennaPod."
                     + " The AntennaPod team does NOT provide support for this unofficial version."
-                    + " If you can read this message, the developers of this modification"
-                    + " violate the GNU General Public License (GPL).");
+                    + " Please contact the developers of this modification for help.");
             findPreference(PREF_CATEGORY_PROJECT).getParent().addPreference(copyrightNotice);
         } else if (packageHash == -1190467065) {
             Preference debugNotice = new Preference(getContext());
@@ -86,6 +84,10 @@ public class MainPreferencesFragment extends AnimatedPreferenceFragment {
         });
         findPreference(PREF_SCREEN_DOWNLOADS).setOnPreferenceClickListener(preference -> {
             ((PreferenceActivity) getActivity()).openScreen(R.xml.preferences_downloads);
+            return true;
+        });
+        findPreference(PREF_SCREEN_AD_DETECTION).setOnPreferenceClickListener(preference -> {
+            ((PreferenceActivity) getActivity()).openScreen(R.xml.preferences_ad_detection);
             return true;
         });
         findPreference(PREF_SCREEN_SYNCHRONIZATION).setOnPreferenceClickListener(preference -> {

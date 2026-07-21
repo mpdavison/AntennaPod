@@ -69,7 +69,23 @@ public class MediaDownloadedHandler implements Runnable {
                 String transcript = TranscriptUtils.loadTranscriptFromUrl(item.getTranscriptUrl(), true);
                 if (!StringUtils.isEmpty(transcript)) {
                     TranscriptUtils.storeTranscript(media, transcript);
+                    String[] lines = transcript.split("\n", 6);
+                    StringBuilder firstLines = new StringBuilder();
+                    for (int i = 0; i < Math.min(5, lines.length); i++) {
+                        firstLines.append(lines[i]).append('\n');
+                    }
+                    Log.d(TAG, "Downloaded: " + media.getEpisodeTitle()
+                            + " | Feed: " + (item.getFeed() != null ? item.getFeed().getTitle() : "?")
+                            + " | Has transcript: true\n" + firstLines);
+                } else {
+                    Log.d(TAG, "Downloaded: " + media.getEpisodeTitle()
+                            + " | Feed: " + (item.getFeed() != null ? item.getFeed().getTitle() : "?")
+                            + " | Has transcript: false (empty)");
                 }
+            } else {
+                Log.d(TAG, "Downloaded: " + media.getEpisodeTitle()
+                        + " | Feed: " + (item != null && item.getFeed() != null ? item.getFeed().getTitle() : "?")
+                        + " | Has transcript: false");
             }
         } catch (InterruptedIOException ignore) {
             // Ignore
@@ -108,6 +124,8 @@ public class MediaDownloadedHandler implements Runnable {
             updatedStatus = new DownloadResult(media.getEpisodeTitle(), media.getId(),
                     FeedMedia.FEEDFILETYPE_FEEDMEDIA, false, DownloadError.ERROR_DB_ACCESS_ERROR, e.getMessage());
         }
+
+        AdDetectionWorker.enqueue(context, media.getId());
 
         if (item != null && item.getFeed().getState() != Feed.STATE_NOT_SUBSCRIBED) {
             SynchronizationQueue.getInstance().enqueueEpisodeAction(

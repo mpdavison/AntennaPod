@@ -126,7 +126,7 @@ public class HorizontalItemListAdapter extends RecyclerView.Adapter<HorizontalIt
         menu.clear();
         inflater.inflate(R.menu.feeditemlist_context, menu);
         menu.setHeaderTitle(longPressedItem.getTitle());
-        FeedItemMenuHandler.onPrepareMenu(menu, Collections.singletonList(longPressedItem), R.id.skip_episode_item);
+        FeedItemMenuHandler.onPrepareMenu(menu, Collections.singletonList(longPressedItem), mainActivityRef.get(), R.id.skip_episode_item);
     }
 
 

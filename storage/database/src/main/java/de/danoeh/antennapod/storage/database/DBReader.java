@@ -601,6 +601,8 @@ public final class DBReader {
             int indexNumDownloaded = cursor.getColumnIndexOrThrow("num_downloaded");
             int indexDownloadSize = cursor.getColumnIndexOrThrow("download_size");
             int indexNumRecentUnplayed = cursor.getColumnIndexOrThrow("num_recent_unplayed");
+            int indexAdSegments = cursor.getColumnIndexOrThrow("ad_segments");
+            int indexAdDuration = cursor.getColumnIndexOrThrow("ad_duration");
 
             while (cursor.moveToNext()) {
                 Feed feed = cursor.getFeed();
@@ -619,7 +621,8 @@ public final class DBReader {
                 }
 
                 result.feedTime.add(new StatisticsItem(feed, feedTotalTime, feedPlayedTime, episodes,
-                        episodesStarted, totalDownloadSize, episodesDownloadCount, hasRecentUnplayed));
+                        episodesStarted, totalDownloadSize, episodesDownloadCount, hasRecentUnplayed,
+                        cursor.getLong(indexAdSegments), cursor.getLong(indexAdDuration)));
             }
         }
         adapter.close();

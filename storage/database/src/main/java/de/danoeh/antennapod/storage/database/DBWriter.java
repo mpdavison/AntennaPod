@@ -364,7 +364,9 @@ public class DBWriter {
             }
 
             adapter.close();
-            AutoDownloadManager.getInstance().autodownloadUndownloadedItems(context);
+            if (AutoDownloadManager.getInstance() != null) {
+                AutoDownloadManager.getInstance().autodownloadUndownloadedItems(context);
+            }
         });
     }
 
@@ -418,7 +420,9 @@ public class DBWriter {
                 DBWriter.markItemsPlayed(FeedItem.UNPLAYED, false, markAsUnplayed);
             }
             adapter.close();
-            AutoDownloadManager.getInstance().autodownloadUndownloadedItems(context);
+            if (AutoDownloadManager.getInstance() != null) {
+                AutoDownloadManager.getInstance().autodownloadUndownloadedItems(context);
+            }
         });
     }
 
@@ -520,7 +524,7 @@ public class DBWriter {
             Log.w(TAG, "Queue was not modified by call to removeQueueItem");
         }
         adapter.close();
-        if (performAutoDownload) {
+        if (performAutoDownload && AutoDownloadManager.getInstance() != null) {
             AutoDownloadManager.getInstance().autodownloadUndownloadedItems(context);
         }
     }
@@ -952,6 +956,15 @@ public class DBWriter {
             PodDBAdapter adapter = PodDBAdapter.getInstance();
             adapter.open();
             adapter.resetAllMediaPlayedDuration();
+            adapter.close();
+        });
+    }
+
+    public static Future<?> setFeedMediaAdStats(long mediaId, int segmentCount, long totalDurationMs) {
+        return runOnDbThread(() -> {
+            PodDBAdapter adapter = PodDBAdapter.getInstance();
+            adapter.open();
+            adapter.setFeedMediaAdStats(mediaId, segmentCount, totalDurationMs);
             adapter.close();
         });
     }

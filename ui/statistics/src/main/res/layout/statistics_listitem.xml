@@ -70,4 +70,17 @@
         android:layout_below="@+id/txtvTitle"
         tools:text="23 hours" />
 
+    <TextView
+        android:id="@+id/txtvAdValue"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:lines="1"
+        android:textColor="?android:attr/textColorTertiary"
+        android:textSize="14sp"
+        android:layout_toEndOf="@+id/chip"
+        android:layout_toRightOf="@+id/chip"
+        android:layout_below="@+id/txtvValue"
+        android:visibility="gone"
+        tools:text="Ads: 2h 15m" />
+
 </RelativeLayout>

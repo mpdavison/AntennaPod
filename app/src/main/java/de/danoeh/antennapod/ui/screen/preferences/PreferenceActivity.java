@@ -83,6 +83,8 @@ public class PreferenceActivity extends ToolbarActivity implements SearchPrefere
             prefFragment = new AutomaticDeletionPreferencesFragment();
         } else if (screen == R.xml.preferences_parental_control) {
             prefFragment = new ParentalControlPreferencesFragment();
+        } else if (screen == R.xml.preferences_ad_detection) {
+            prefFragment = new AdDetectionPreferencesFragment();
         }
         return prefFragment;
     }
@@ -110,6 +112,8 @@ public class PreferenceActivity extends ToolbarActivity implements SearchPrefere
             return R.string.pref_auto_delete_title;
         } else if (preferences == R.xml.preferences_parental_control) {
             return R.string.pref_parental_control_title;
+        } else if (preferences == R.xml.preferences_ad_detection) {
+            return R.string.pref_ad_detection_title;
         }
         return R.string.settings_label;
     }
@@ -129,6 +133,13 @@ public class PreferenceActivity extends ToolbarActivity implements SearchPrefere
 
 
         return fragment;
+    }
+
+    public void openCustomFragment(androidx.fragment.app.Fragment fragment) {
+        getSupportFragmentManager().beginTransaction()
+                .replace(binding.settingsContainer.getId(), fragment)
+                .addToBackStack(null)
+                .commit();
     }
 
     @Override

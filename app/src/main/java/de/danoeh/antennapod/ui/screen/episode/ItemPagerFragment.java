@@ -154,10 +154,10 @@ public class ItemPagerFragment extends Fragment implements MaterialToolbar.OnMen
             return;
         }
         if (item.hasMedia()) {
-            FeedItemMenuHandler.onPrepareMenu(toolbar.getMenu(), Collections.singletonList(item));
+            FeedItemMenuHandler.onPrepareMenu(toolbar.getMenu(), Collections.singletonList(item), getActivity());
         } else {
             // these are already available via button1 and button2
-            FeedItemMenuHandler.onPrepareMenu(toolbar.getMenu(), Collections.singletonList(item),
+            FeedItemMenuHandler.onPrepareMenu(toolbar.getMenu(), Collections.singletonList(item), getActivity(),
                     R.id.mark_read_item, R.id.visit_website_item);
         }
     }

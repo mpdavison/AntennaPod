@@ -42,4 +42,15 @@
                 android:title="@string/favorites_export_label"
                 android:summary="@string/favorites_export_summary"/>
     </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/pref_ad_detection_title">
+        <Preference
+                android:key="prefAdSettingsExport"
+                android:title="@string/ad_settings_export_label"
+                android:summary="@string/ad_settings_export_summary"/>
+        <Preference
+                android:key="prefAdSettingsImport"
+                android:title="@string/ad_settings_import_label"
+                android:summary="@string/ad_settings_import_summary"/>
+    </PreferenceCategory>
 </PreferenceScreen>

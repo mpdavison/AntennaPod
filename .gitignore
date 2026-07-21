@@ -19,6 +19,7 @@ build.xml
 gen-external-apklibs
 out
 contributers.py
+home
 captures
 *.odg#
 proguard
@@ -32,4 +33,13 @@ gradle.properties
 *.hprof
 .kotlin
 .claude
-.cursor
+adskip/venv
+adskip/vm_venv
+adskip/podcasts
+adskip/.env
+adskip/*log
+adskip/duckdb*
+__pycache__
+venv
+cloudflared-credentials.json
+.env

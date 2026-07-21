@@ -17,6 +17,7 @@ dependencies {
     implementation project(':model')
     implementation project(':net:common')
     implementation project(':storage:preferences')
+    implementation project(':ui:i18n')
 
     annotationProcessor libs.androidx.annotation
     implementation libs.commons.lang3
@@ -24,4 +25,5 @@ dependencies {
 
     testImplementation libs.junit
     testImplementation libs.robolectric
+    testImplementation project(':event')
 }

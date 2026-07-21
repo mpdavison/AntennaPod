@@ -17,8 +17,10 @@ import java.util.Collections;
 import java.util.List;
 
 import de.danoeh.antennapod.R;
+import de.danoeh.antennapod.event.AdDetectionProgressEvent;
 import de.danoeh.antennapod.event.MessageEvent;
 import de.danoeh.antennapod.model.feed.Feed;
+import de.danoeh.antennapod.net.download.serviceinterface.AdDetectionManager;
 import de.danoeh.antennapod.net.download.serviceinterface.DownloadServiceInterface;
 import de.danoeh.antennapod.storage.preferences.PlaybackPreferences;
 import de.danoeh.antennapod.playback.service.PlaybackServiceInterface;
@@ -54,6 +56,10 @@ public class FeedItemMenuHandler {
      * @return Returns true if selectedItem is not null.
      */
     public static boolean onPrepareMenu(Menu menu, List<FeedItem> selectedItems, int... excludeIds) {
+        return onPrepareMenu(menu, selectedItems, null, excludeIds);
+    }
+
+    public static boolean onPrepareMenu(Menu menu, List<FeedItem> selectedItems, Context context, int... excludeIds) {
         if (menu == null || selectedItems == null || selectedItems.isEmpty() || selectedItems.get(0) == null) {
             return false;
         }
@@ -72,6 +78,7 @@ public class FeedItemMenuHandler {
         boolean canRemoveFavorite = false;
         boolean canShowTranscript = false;
         boolean canShowSocialInteract = false;
+        boolean canClearAdTimestamps = false;
 
         for (FeedItem item : selectedItems) {
             final boolean hasMedia = item.getMedia() != null;
@@ -104,6 +111,12 @@ public class FeedItemMenuHandler {
             }
         }
 
+        if (selectedItems.size() == 1 && context != null) {
+            FeedItem item = selectedItems.get(0);
+            canClearAdTimestamps = item.hasMedia() && item.getMedia().isDownloaded()
+                    && AdDetectionManager.isAdDetectionComplete(context, item.getMedia());
+        }
+
         setItemVisibility(menu, R.id.skip_episode_item, canSkip);
         setItemVisibility(menu, R.id.remove_from_queue_item, canRemoveFromQueue);
         setItemVisibility(menu, R.id.add_to_queue_item, canAddToQueue);
@@ -114,6 +127,7 @@ public class FeedItemMenuHandler {
         setItemVisibility(menu, R.id.mark_unread_item, canMarkUnplayed);
         setItemVisibility(menu, R.id.reset_position, canResetPosition);
         setItemVisibility(menu, R.id.open_social_interact_url, canShowSocialInteract);
+        setItemVisibility(menu, R.id.clear_ad_timestamps_item, canClearAdTimestamps);
 
         // Display proper strings when item has no media
         if (selectedItems.size() == 1 && selectedItems.get(0).getMedia() == null) {
@@ -224,6 +238,14 @@ public class FeedItemMenuHandler {
         } else if (menuItemId == R.id.share_item) {
             ShareDialog shareDialog = ShareDialog.newInstance(selectedItem);
             shareDialog.show((fragment.getActivity().getSupportFragmentManager()), "ShareEpisodeDialog");
+        } else if (menuItemId == R.id.clear_ad_timestamps_item) {
+            FeedMedia media = selectedItem.getMedia();
+            if (media != null) {
+                AdDetectionManager.adTimestampsFileFor(context, media).delete();
+                AdDetectionManager.setProgress(media.getId(), -1);
+                DBWriter.setFeedMediaAdStats(media.getId(), 0, 0);
+                EventBus.getDefault().post(new AdDetectionProgressEvent(Collections.singleton(media.getId())));
+            }
         } else {
             Log.d(TAG, "Unknown menuItemId: " + menuItemId);
             return false;
@@ -248,6 +270,7 @@ public class FeedItemMenuHandler {
         Log.d(TAG, "markReadWithUndo(" + item.getId() + ")");
         // we're marking it as unplayed since the user didn't actually play it
         // but they don't want it considered 'NEW' anymore
+        int originalPlayState = item.getPlayState();
         DBWriter.markItemsPlayed(playState, false, Collections.singletonList(item));
 
         Context context = fragment.requireContext();
@@ -271,7 +294,7 @@ public class FeedItemMenuHandler {
         switch (playState) {
             default:
             case FeedItem.UNPLAYED:
-                if (item.getPlayState() == FeedItem.NEW) {
+                if (originalPlayState == FeedItem.NEW) {
                     //was new
                     message = fragment.getString(R.string.removed_from_inbox_message);
                 } else {
@@ -289,7 +312,7 @@ public class FeedItemMenuHandler {
         if (showSnackbar) {
             EventBus.getDefault().post(new MessageEvent(message,
                     ctx -> {
-                        DBWriter.markItemsPlayed(item.getPlayState(), false, Collections.singletonList(item));
+                        DBWriter.markItemsPlayed(originalPlayState, false, Collections.singletonList(item));
                         // don't forget to cancel the thing that's going to remove the media
                         h.removeCallbacks(r);
                     }, fragment.getString(R.string.undo)));

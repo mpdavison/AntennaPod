@@ -23,6 +23,7 @@ import com.google.android.material.appbar.MaterialToolbar;
 import de.danoeh.antennapod.R;
 import de.danoeh.antennapod.activity.MainActivity;
 import de.danoeh.antennapod.databinding.FeedItemListFragmentBinding;
+import de.danoeh.antennapod.event.AdDetectionProgressEvent;
 import de.danoeh.antennapod.event.EpisodeDownloadEvent;
 import de.danoeh.antennapod.event.FeedEvent;
 import de.danoeh.antennapod.event.FeedItemEvent;
@@ -425,6 +426,19 @@ public class FeedItemlistFragment extends Fragment implements AdapterView.OnItem
         }
         for (String downloadUrl : event.getUrls()) {
             int pos = EpisodeDownloadEvent.indexOfItemWithDownloadUrl(feed.getItems(), downloadUrl);
+            if (pos >= 0) {
+                adapter.notifyItemChangedCompat(pos);
+            }
+        }
+    }
+
+    @Subscribe(sticky = true, threadMode = ThreadMode.MAIN)
+    public void onAdDetectionProgress(AdDetectionProgressEvent event) {
+        if (feed == null) {
+            return;
+        }
+        for (long mediaId : event.getMediaIds()) {
+            int pos = AdDetectionProgressEvent.indexOfItemWithMediaId(feed.getItems(), mediaId);
             if (pos >= 0) {
                 adapter.notifyItemChangedCompat(pos);
             }

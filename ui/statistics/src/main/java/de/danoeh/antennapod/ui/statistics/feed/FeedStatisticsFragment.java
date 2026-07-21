@@ -67,6 +67,7 @@ public class FeedStatisticsFragment extends Fragment {
             viewBinding.episodesDownloaded.getRoot().setBackgroundColor(color);
             viewBinding.expectedNextEpisode.getRoot().setBackgroundColor(color);
             viewBinding.episodeSchedule.getRoot().setBackgroundColor(color);
+            viewBinding.adTimeDetected.getRoot().setBackgroundColor(color);
         }
         return viewBinding.getRoot();
     }
@@ -177,6 +178,10 @@ public class FeedStatisticsFragment extends Fragment {
 
         viewBinding.spaceDownloaded.mainLabel.setText(Formatter.formatShortFileSize(getContext(), s.totalDownloadSize));
         viewBinding.spaceDownloaded.subtitleLabel.setText(R.string.statistics_episodes_space);
+
+        viewBinding.adTimeDetected.mainLabel.setText(Converter.shortLocalizedDuration(
+                getContext(), s.adTotalDurationMs / 1000));
+        viewBinding.adTimeDetected.subtitleLabel.setText(R.string.statistics_ad_time);
 
         viewBinding.expectedNextEpisode.subtitleLabel.setText(R.string.statistics_release_next);
         viewBinding.episodeSchedule.subtitleLabel.setText(R.string.statistics_release_schedule);

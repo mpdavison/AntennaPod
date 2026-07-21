@@ -27,6 +27,20 @@
         <item>0</item>
     </string-array>
 
+    <!-- Keep consistent with AdDetectionSetting -->
+    <string-array name="feedAdDetectionItems">
+        <item>@string/global_default</item>
+        <item>@string/enabled</item>
+        <item>@string/disabled</item>
+    </string-array>
+
+    <!-- Keep consistent with AdDetectionSetting -->
+    <string-array name="feedAdDetectionValues">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+    </string-array>
+
     <string-array name="spnVolumeAdaptationItems">
         <item>@string/feed_volume_reduction_heavy</item>
         <item>@string/feed_volume_reduction_light</item>

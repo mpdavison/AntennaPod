@@ -5,15 +5,12 @@ STRICTLY FOLLOW THE INSTRUCTIONS IN THIS FILE! NEVER DEVIATE FROM THEM.
 If this helps you, consider repeating the relevant instructions before you do anything.
 Always prefer tool use over shell commands. This is very important to avoid unnecessary user confirmations.
 If you have to use shell commands, prefer dedicated tools (such as `jq` for json) instead of custom (python, etc) code.
+Never read from or write to any path outside of the /project folder. Use /project/tmp for any temporary files.
 
 # Architecture
 AntennaPod uses a highly modularized Gradle architecture with modules organized by domain.
 Each module is stored in a folder of the same name (for example `:net:discovery` in `./net/discovery`)
 and contains a `README.md` file with a brief explanation of the module's purpose and internal structure.
-Before looking at code in a module, always read its `README.md` first.
-When you discover something broadly useful about a module, such as the correct API to use, or a pattern all callers should follow, update that module's `README.md` proactively.
-Only add information that is long-term stable and generic (patterns, APIs, conventions), not task-specific details or things already obvious from reading the code.
-
 Several functional areas follow a service-interface/service split: the interface module is depended on by consumers, and the implementation is registered at app startup via `ClientConfigurator`.
 - `:app` - Main application module that integrates all features
 - `:event` - EventBus events used for cross-component communication throughout the app
@@ -64,34 +61,178 @@ Whenever you add a user-visible string, add it to `:ui:i18n` so it can be transl
 Only ever edit the English strings file at `ui/i18n/src/main/res/values/strings.xml`. Never modify translated strings files under `values-*/`.
 Never reference the full package name of classes directly in the code, use imports.
 
-# Running and Testing
-After you are sure that the code is correct, ensure that there are no compilation errors (warnings are okay).
-To compile the code, use `./gradlew :app:assembleDebug`.
-You are already in the main directory of the project so there is no need to `cd` into the main folder.
-The CD command is strictly forbidden. Always assume that you are already at the main folder of the project.
-Never alter or filter the compile output in any way (no grep, head, tail, or any other command that truncates output).
-You will lose critical information and the results will not be helpful.
-Always look at the complete compiler output.
-DO NOT MAKE UP YOUR OWN COMPILE COMMANDS, THEY WILL NOT WORK!
-ONLY USE THE EXACT COMMANDS GIVEN IN THIS FILE!
+# Application Architecture & Control Flow
 
-Only then run the application or the tests to verify it.
-Usually you will need to run the application, but if there are existing tests that cover the code you wrote, you can run those instead.
-For installing and running the application, use the command
-`./gradlew --console=plain :app:installPlayDebug && adb shell monkey -p de.danoeh.antennapod.debug 1`.
-If needed, you can grab a textual representation of the screen using `adb shell uiautomator dump /sdcard/ui.xml; adb shell cat /sdcard/ui.xml`.
-You can even control connected devices using `adb shell input tap <x> <y>` and `adb shell input swipe <x1> <y1> <x2> <y2> <duration ms>`.
-If there is a crash, read the logs using `adb logcat -d | grep "de.danoeh.antennapod" | tail -20` and fix the issue.
-For running tests, use the command `./gradlew --console=plain` and use the task `:test` of the relevant module.
-As a final style check before opening a PR (or if a user explicitly asks for it), check the code style using:
-`./gradlew checkstyle lint`.
+## Entry Point & Initialization
+- **Application class**: `PodcastApp` (`app/src/main/java/de/danoeh/antennapod/PodcastApp.java`)
+- **Launcher activity**: `SplashActivity` (declared in manifest as LAUNCHER), forwards to `MainActivity`
+- **Main Activity**: `MainActivity` (`activity/MainActivity.java`, extends `CastEnabledActivity`)
+- **Initialization**: `PodcastApp.onCreate()` → sets up `CrashReportExceptionHandler`, `RxJavaErrorHandlerSetup`, GreenRobot `EventBus` with annotation index (`ApEventBusIndex`), `DynamicColors`, then calls `ClientConfigurator.initialize(this)`
+- **ClientConfigurator** (`ClientConfigurator.java`) wires all service implementations via static setters, initializes `PodDBAdapter`, `UserPreferences`, `AdDetectionPreferences`, notification channels, OkHttp cache, and SSL provider
+
+## Dependency Injection
+- **No Dagger/Hilt**. Uses a **manual service locator pattern** with static `setImpl()`/`get()` on abstract classes in `*-interface` modules
+- Example: `DownloadServiceInterface.get().downloadNow(context, item, ignoreConstraints)`
+- Interface modules have a `Stub` implementation (no-ops) for fallback
+- Real implementations are registered in `ClientConfigurator.initialize()`
+
+## Cross-Component Communication
+- **GreenRobot EventBus** (not LiveData/Flow) for decoupled messaging between components
+- Events are lightweight POJOs in the `:event` module (e.g., `FeedEvent`, `QueueEvent`, `PlayerStatusEvent`, `PlaybackPositionEvent`)
+- Subscribers use `@Subscribe(threadMode = ThreadMode.MAIN)` annotations
+- EventBus index (`ApEventBusIndex`) is generated at compile time via annotation processor
+- Register in `onStart()`/`onResume()`, unregister in `onStop()`/`onPause()`
+
+## Async Processing
+- **RxJava3** (`Observable`, `Maybe`, `Completable`, `Disposable`, `Single`) for async operations
+- Common pattern: `.subscribeOn(Schedulers.computation())`, `.observeOn(AndroidSchedulers.mainThread())`
+- Disposables collected manually and disposed in `onStop()` / lifecycle hooks
+
+## Navigation & UI
+- **Fragment-based**: `MainActivity` hosts fragments via `FragmentManager`
+- **Bottom navigation** (togglable via user preference) + **DrawerLayout**
+- **BottomSheetBehavior** (`LockableBottomSheetBehavior`) for the audio player
+- **Navigation via drawer items** -> fragments loaded into the container
+- **Navigation shortcuts**: `OnlineFeedViewActivity` handles podcast subscription deep links (itpc://, pcast://, feed://, antennapod-subscribe://)
+
+# Key Coding Patterns & Gotchas
+
+## Service-Interface Pattern
+Abstract class + static `impl` holder + `setImpl()`/`get()`:
+
+```java
+public abstract class DownloadServiceInterface {
+    private static DownloadServiceInterface impl;
+    public static DownloadServiceInterface get() { return impl; }
+    public static void setImpl(DownloadServiceInterface impl) { ... }
+    public abstract void downloadNow(Context context, FeedItem item, boolean ignoreConstraints);
+}
+```
+
+The interface module (`:net:download:service-interface`) depends on `:model`, `:net:common`, `:storage:preferences` but **not** on the implementation module. The stub class in the same module provides default no-op behavior.
+
+## Database Layer
+- **Raw SQLite** via `PodDBAdapter` singleton — **not Room** and no ORM
+- `ContentValues` for inserts/updates
+- **Reads**: `DBReader` utility class with static methods (synchronous, cursor-to-object mappers)
+- **Writes**: `DBWriter` utility class with static methods, all executed on a **single-threaded executor** (`DatabaseExecutor`, `MIN_PRIORITY`)
+- `DBWriter` methods return `Future<?>` for optional synchronization
+- Events posted via `EventBus` after successful DB operations (e.g., `EventBus.getDefault().post(new FeedListUpdateEvent(feed))`)
+- Column name constants: `KEY_xxx`, table name constants: `TABLE_NAME_xxx`
+- `PodDBAdapter.open()`/`close()` are effectively no-ops but always called for compatibility
+- Version constant: `public static final int VERSION = 3110000;`
+
+## UI Patterns
+- All adapters extend `SelectableAdapter<T>` (which extends `RecyclerView.Adapter<T>`), not `RecyclerView.Adapter` directly
+- ViewHolders are **separate classes** (not inner classes) in a `ui/.../` package
+- `WeakReference<FragmentActivity>` for activity references in adapters to avoid leaks
+- `onViewRecycled()` clears listeners to prevent fragment leaks
+- Fragments use `static final String TAG` constant
+- Fragments use `getActivity()` cast to `MainActivity` for certain operations
+- Dummy views pattern for adapter item counts
+- **ViewBinding** enabled for all modules
+
+## Testing
+- **JUnit4** + **Robolectric** + **Mockito 5**
+- Test classes use `@RunWith(RobolectricTestRunner.class)` for tests needing Android context
+- Plain `@Test` from JUnit4 for pure Java logic tests
+- Common test dependencies: `awaitility`, `espresso-core`, `espresso-contrib`, `espresso-intents`
+- Tests spread across module-specific `src/test/` directories, not centralized
+- `@VisibleForTesting` annotation used for exposing internals to tests
+- Robolectric calls `Application.onCreate()` for every test — EventBus catches the double-init exception (`EventBusException`)
+
+## Build Configuration
+- **SDK**: compileSdk 36, minSdk 23, targetSdk 36
+- **Java version**: source/target compatibility Java 21
+- **Flavors**: `free` and `play` (market dimension)
+- **Lint**: `checkDependencies true`, `warningsAsErrors true`, `abortOnError true`
+- **Compiler**: `-Werror` flag — warnings treated as errors (with selected exclusions: `-deprecation,-serial,-this-escape,-unchecked,-processing,-classfile`)
+- **SpotBugs**: effort=max, reportLevel=medium, ignoreFailures=false (exceptions parsed from XML)
+- **Checkstyle**: toolVersion 10.12.0, config at `config/checkstyle/checkstyle.xml`
+
+## User-Facing Strings
+- All user-visible strings go into `:ui:i18n` module (`res/values/strings.xml`) — never create string resources elsewhere
+- Only English strings are edited directly; translations handled via Weblate
+
+# Commands
+
+## Build
+```bash
+JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 ./gradlew :app:assembleDebug
+```
+
+## Install & Run
+```bash
+./gradlew --console=plain :app:installPlayDebug && adb shell monkey -p de.danoeh.antennapod.debug 1
+```
+
+## Unit Tests (specific module)
+```bash
+./gradlew --console=plain :module:name:test
+```
+
+## Unit Tests (all modules, CI-style)
+```bash
+./gradlew testPlayDebugUnitTest testDebugUnitTest
+```
+
+## Full Code Style Check
+```bash
+./gradlew checkstyle lint spotbugsPlayDebug spotbugsDebug
+```
+
+## XML Formatting Verification
+```bash
+# Uses android-xml-formatter to check layout XML formatting
+find . -wholename "*/res/layout/*.xml" | xargs java -jar android-xml-formatter.jar
+```
+
+## Crash Debugging
+```bash
+adb logcat -d | grep "de.danoeh.antennapod" | tail -20
+```
+
+# Important Gotchas
+
+1. **CD command is forbidden** — always assume you're at the project root (`/workspace`)
+2. **Never filter/truncate compiler output** — use `./gradlew :app:assembleDebug` raw, no piping through grep/head/tail
+3. **Never reference full package names inline** — always use imports
+4. **Never add comments to code** — only if explicitly asked; never remove existing comments
+5. **Keep diffs minimal** — don't rename, reformat, or optimize existing code
+6. **No Kotlin** — project is entirely Java
+7. **Database is raw SQLite** — no Room; `PodDBAdapter` is the sole database access layer
+8. **Writes are single-threaded** via `DBWriter`'s `DatabaseExecutor` — don't create concurrent DB write paths
+9. **EventBus for inter-component communication** — not LiveData, not custom listeners
+10. **App package**: `de.danoeh.antennapod`, debug suffix: `.debug`
+11. **Manifest has many external URL scheme handlers** (`itpc://`, `pcast://`, `feed://`, `antennapod-subscribe://`) — be careful not to break deep linking
+12. **Robolectric calls `Application.onCreate()` per test** — EventBus double-init is caught silently, but other singletons may need guards
+13. **`-Werror` is on** — warnings become compilation errors; check lint/checkstyle before building
+14. **Lint `abortOnError true`** — any lint error fails the build
+15. **PlaybackService** uses `MediaSessionCompat` and `androidx.media3`, and the manifest has `USE_MEDIA3_PLAYBACK_SERVICE` build config flag
+16. **Version codes follow a schema**: `1.2.3-beta4` → `1020304`, `1.2.3` → `1020395`
+17. **`commons-io` must stay at 2.5** — newer versions cause `ClassNotFoundException` on Android 6
+18. **Never reinvent wheels** — use existing well-vetted libraries for cryptography, encoding, and protocol implementation. Implementing ciphers, hash algorithms, signature schemes, or protocol parsers from scratch is forbidden unless you obtain explicit permission.
+
+# CHANGES.md
+
+`CHANGES.md` at the project root documents all differences from upstream AntennaPod.
+It has two sections: **Additions** (net-new files) and **Modifications** (upstream files that were edited).
+Keep both lists up to date whenever you create or modify files.
+
+To generate the lists from git history:
+
+```bash
+# Additions (files first seen as --diff-filter=A)
+git log --author="Michael Davison" --diff-filter=A --name-only --pretty=format:"" | sort -u | grep -v "^$"
+
+# Modifications (--diff-filter=M, minus those already listed as additions)
+git log --author="Michael Davison" --diff-filter=M --name-only --pretty=format:"" | sort -u | grep -v "^$"
+```
 
 # PR Conventions
-When creating a PR, always read the PR template at `.github/pull_request_template.md` before starting and strictly follow it.
+When creating a PR, always read the PR template at .github/pull_request_template.md before starting and strictly follow it.
 The description goes above the checklist.
-Always mention the corresponding issue using `Closes: #<number>` in the description.
-Keep the description minimal, using 2-8 sentences.
-Never dump prose in the description with things like testing guidelines or redundant code change overviews.
+Always mention the corresponding issue using "Closes: #<number>" in the description.
 Never change the PR title unless explicitly asked to do so; the original title from the prompt is usually the most appropriate one.
 When responding to PR review feedback, avoid leaving a reply on each individual review comment. Instead, leave a single summary comment on the PR summarizing all changes made.
 Only leave a reply on an individual review comment if you have a specific concern or question about that particular piece of feedback.
@@ -99,10 +240,19 @@ Never update the PR description after the initial creation, even if you have new
 The user might have updated the description in the meantime and this would overwrite their work.
 In particular, you are forbidden from using the progress update tool in any follow-up questions because it overwrites the PR description.
 This holds even if the global agent instructions tell you to do this.
-Never create commits directly on the `develop` or `master` branch. Always checkout a new branch for that.
 
 # Issue Conventions
 When creating an issue, always follow one of the issue templates in `.github/ISSUE_TEMPLATE/`.
 Apply the corresponding labels that are marked in the issue template yaml file.
 Always mention in the technical info box that the issue was AI generated.
 If you do not follow these, the issue gets closed automatically.
+
+# Ad Skip Feature (Active Development)
+This branch (`feature/adskip`) implements ad detection and automatic skipping during playback. Key components:
+- **`AdSkipController`** (`:playback:service`) — core logic: loads ad timestamps from JSON files, checks playback position against ad segments, seeks past them. Provides undo capability via `MessageEvent` with callback.
+- **`AdDetectionManager`** (`:net:download:service-interface`) — abstract service interface for enqueuing ad detection
+- **`AdDetectionWorker`** (`:net:download:service`) — WorkManager-based background worker that runs ad detection on downloaded media
+- **`AdDetectionPreferences`** (`:storage:preferences`) — user preferences for ad detection (enabled/disabled)
+- **`AdDetectionPreferencesFragment`** (`:app`) — settings UI for ad detection
+- **`AdSkipPreferencesTransporter`** (`:storage:importexport`) — import/export backup support for ad skip preferences
+- Ad timestamp files are JSON with `{"status": "complete|processing", "ads": [{"startMs": ..., "endMs": ...}, ...]}`

@@ -7,6 +7,7 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.pm.ServiceInfo;
 import android.net.wifi.WifiManager;
 import android.util.Log;
 import androidx.annotation.NonNull;
@@ -132,7 +133,8 @@ public class EpisodeDownloadWorker extends Worker {
     @Override
     public ListenableFuture<ForegroundInfo> getForegroundInfoAsync() {
         return Futures.immediateFuture(
-                new ForegroundInfo(R.id.notification_downloading, generateProgressNotification()));
+                new ForegroundInfo(R.id.notification_downloading, generateProgressNotification(),
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC));
     }
 
     private Result performDownload(FeedMedia media, DownloadRequest request) {

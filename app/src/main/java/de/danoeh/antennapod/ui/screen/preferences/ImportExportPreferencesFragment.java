@@ -32,6 +32,7 @@ import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedItemFilter;
 import de.danoeh.antennapod.model.feed.SortOrder;
 import de.danoeh.antennapod.storage.importexport.AutomaticDatabaseExportWorker;
+import de.danoeh.antennapod.storage.importexport.AdSkipPreferencesTransporter;
 import de.danoeh.antennapod.storage.importexport.DatabaseExporter;
 import de.danoeh.antennapod.storage.importexport.FavoritesWriter;
 import de.danoeh.antennapod.storage.importexport.HtmlWriter;
@@ -64,11 +65,15 @@ public class ImportExportPreferencesFragment extends AnimatedPreferenceFragment 
     private static final String PREF_DATABASE_EXPORT = "prefDatabaseExport";
     private static final String PREF_AUTOMATIC_DATABASE_EXPORT = "prefAutomaticDatabaseExport";
     private static final String PREF_FAVORITE_EXPORT = "prefFavoritesExport";
+    private static final String PREF_AD_SETTINGS_EXPORT = "prefAdSettingsExport";
+    private static final String PREF_AD_SETTINGS_IMPORT = "prefAdSettingsImport";
     private static final String DEFAULT_OPML_OUTPUT_NAME = "antennapod-feeds-%s.opml";
     private static final String CONTENT_TYPE_OPML = "text/x-opml";
     private static final String DEFAULT_HTML_OUTPUT_NAME = "antennapod-feeds-%s.html";
     private static final String CONTENT_TYPE_HTML = "text/html";
     private static final String DEFAULT_FAVORITES_OUTPUT_NAME = "antennapod-favorites-%s.html";
+    private static final String DEFAULT_AD_SETTINGS_OUTPUT_NAME = "antennapod-ad-settings-%s.json";
+    private static final String CONTENT_TYPE_JSON = "application/json";
     private static final String DATABASE_EXPORT_FILENAME = "AntennaPodBackup-%s.db";
 
     private final ActivityResultLauncher<Intent> chooseOpmlExportPathLauncher =
@@ -80,6 +85,9 @@ public class ImportExportPreferencesFragment extends AnimatedPreferenceFragment 
     private final ActivityResultLauncher<Intent> chooseFavoritesExportPathLauncher =
             registerForActivityResult(new StartActivityForResult(),
                     result -> exportToDocument(result, Export.FAVORITES));
+    private final ActivityResultLauncher<Intent> chooseAdSettingsExportPathLauncher =
+            registerForActivityResult(new StartActivityForResult(),
+                    result -> exportToDocument(result, Export.AD_SETTINGS));
     private final ActivityResultLauncher<Intent> restoreDatabaseLauncher =
             registerForActivityResult(new StartActivityForResult(), this::restoreDatabaseResult);
     private final ActivityResultLauncher<String> backupDatabaseLauncher =
@@ -94,6 +102,13 @@ public class ImportExportPreferencesFragment extends AnimatedPreferenceFragment 
             });
     private final ActivityResultLauncher<Uri> automaticBackupLauncher =
             registerForActivityResult(new PickWritableFolder(), this::setupAutomaticBackup);
+
+    private final ActivityResultLauncher<String> chooseAdSettingsImportPathLauncher =
+            registerForActivityResult(new GetContent(), uri -> {
+                if (uri != null) {
+                    importAdSettings(uri);
+                }
+            });
 
     private Disposable disposable;
     private ProgressDialog progressDialog;
@@ -179,6 +194,21 @@ public class ImportExportPreferencesFragment extends AnimatedPreferenceFragment 
         findPreference(PREF_FAVORITE_EXPORT).setOnPreferenceClickListener(
                 preference -> {
                     openExportPathPicker(Export.FAVORITES, chooseFavoritesExportPathLauncher);
+                    return true;
+                });
+        findPreference(PREF_AD_SETTINGS_EXPORT).setOnPreferenceClickListener(
+                preference -> {
+                    openExportPathPicker(Export.AD_SETTINGS, chooseAdSettingsExportPathLauncher);
+                    return true;
+                });
+        findPreference(PREF_AD_SETTINGS_IMPORT).setOnPreferenceClickListener(
+                preference -> {
+                    try {
+                        chooseAdSettingsImportPathLauncher.launch("*/*");
+                    } catch (ActivityNotFoundException e) {
+                        Snackbar.make(getView(), R.string.unable_to_start_system_file_manager, Snackbar.LENGTH_LONG)
+                                .show();
+                    }
                     return true;
                 });
     }
@@ -282,6 +312,17 @@ public class ImportExportPreferencesFragment extends AnimatedPreferenceFragment 
                 }, this::showExportErrorDialog);
     }
 
+    private void importAdSettings(final Uri uri) {
+        progressDialog.show();
+        disposable = Completable.fromAction(() -> AdSkipPreferencesTransporter.importBackup(uri, getContext()))
+                .subscribeOn(Schedulers.computation())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(() -> {
+                    progressDialog.dismiss();
+                    Snackbar.make(getView(), R.string.ad_settings_import_success, Snackbar.LENGTH_LONG).show();
+                }, this::showExportErrorDialog);
+    }
+
     private void openExportPathPicker(Export exportType, ActivityResultLauncher<Intent> result) {
         String title = dateStampFilename(exportType.outputNameTemplate);
 
@@ -369,6 +410,9 @@ public class ImportExportPreferencesFragment extends AnimatedPreferenceFragment 
                             new FeedItemFilter(FeedItemFilter.IS_FAVORITE), SortOrder.DATE_NEW_OLD);
                     FavoritesWriter.writeDocument(allFavorites, writer, getContext());
                     break;
+                case AD_SETTINGS:
+                    AdSkipPreferencesTransporter.writeDocument(writer, getContext());
+                    break;
                 default:
                     showExportErrorDialog(new Exception("Invalid export type"));
                     break;
@@ -423,7 +467,8 @@ public class ImportExportPreferencesFragment extends AnimatedPreferenceFragment 
     private enum Export {
         OPML(CONTENT_TYPE_OPML, DEFAULT_OPML_OUTPUT_NAME, R.string.opml_export_label),
         HTML(CONTENT_TYPE_HTML, DEFAULT_HTML_OUTPUT_NAME, R.string.html_export_label),
-        FAVORITES(CONTENT_TYPE_HTML, DEFAULT_FAVORITES_OUTPUT_NAME, R.string.favorites_export_label);
+        FAVORITES(CONTENT_TYPE_HTML, DEFAULT_FAVORITES_OUTPUT_NAME, R.string.favorites_export_label),
+        AD_SETTINGS(CONTENT_TYPE_JSON, DEFAULT_AD_SETTINGS_OUTPUT_NAME, R.string.ad_settings_export_label);
 
         final String contentType;
         final String outputNameTemplate;

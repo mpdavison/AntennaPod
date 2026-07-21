@@ -51,6 +51,7 @@ import de.danoeh.antennapod.storage.database.DBReader;
 import de.danoeh.antennapod.storage.database.DBWriter;
 import de.danoeh.antennapod.ui.common.Converter;
 import de.danoeh.antennapod.ui.screen.feed.ItemSortDialog;
+import de.danoeh.antennapod.event.AdDetectionProgressEvent;
 import de.danoeh.antennapod.event.EpisodeDownloadEvent;
 import de.danoeh.antennapod.event.FeedItemEvent;
 import de.danoeh.antennapod.event.FeedUpdateRunningEvent;
@@ -156,10 +157,12 @@ public class QueueFragment extends Fragment implements MaterialToolbar.OnMenuIte
             case REMOVED:
             case IRREVERSIBLE_REMOVED:
                 position = FeedItemEvent.indexOfItemWithId(queue, event.item.getId());
-                if (position >= 0) {
-                    queue.remove(position);
-                    recyclerAdapter.notifyItemRemoved(position);
+                if (position < 0) {
+                    loadItems();
+                    return;
                 }
+                queue.remove(position);
+                recyclerAdapter.notifyItemRemoved(position);
                 break;
             case CLEARED:
                 queue.clear();
@@ -167,10 +170,12 @@ public class QueueFragment extends Fragment implements MaterialToolbar.OnMenuIte
                 break;
             case MOVED:
                 position = FeedItemEvent.indexOfItemWithId(queue, event.item.getId());
-                if (position >= 0) {
-                    queue.add(event.position, queue.remove(position));
-                    recyclerAdapter.notifyItemMoved(position, event.position);
+                if (position < 0) {
+                    loadItems();
+                    return;
                 }
+                queue.add(event.position, queue.remove(position));
+                recyclerAdapter.notifyItemMoved(position, event.position);
                 break;
             default:
                 return;
@@ -216,6 +221,19 @@ public class QueueFragment extends Fragment implements MaterialToolbar.OnMenuIte
         }
         for (String downloadUrl : event.getUrls()) {
             int pos = EpisodeDownloadEvent.indexOfItemWithDownloadUrl(queue, downloadUrl);
+            if (pos >= 0) {
+                recyclerAdapter.notifyItemChangedCompat(pos);
+            }
+        }
+    }
+
+    @Subscribe(sticky = true, threadMode = ThreadMode.MAIN)
+    public void onAdDetectionProgress(AdDetectionProgressEvent event) {
+        if (queue == null) {
+            return;
+        }
+        for (long mediaId : event.getMediaIds()) {
+            int pos = AdDetectionProgressEvent.indexOfItemWithMediaId(queue, mediaId);
             if (pos >= 0) {
                 recyclerAdapter.notifyItemChangedCompat(pos);
             }

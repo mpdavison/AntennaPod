@@ -6,6 +6,10 @@ apply from: "../../playFlavor.gradle"
 
 android {
     namespace "de.danoeh.antennapod.storage.importexport"
+
+    testOptions {
+        unitTests.returnDefaultValues = true
+    }
 }
 
 dependencies {
@@ -29,6 +33,8 @@ dependencies {
     implementation libs.guava
 
     testImplementation libs.junit
+    testImplementation libs.mockito.core
     testImplementation libs.androidx.test.core
     testImplementation libs.robolectric
+    testImplementation libs.json
 }

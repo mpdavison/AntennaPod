@@ -22,6 +22,7 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.google.android.material.appbar.MaterialToolbar;
 
+import de.danoeh.antennapod.event.AdDetectionProgressEvent;
 import de.danoeh.antennapod.event.MessageEvent;
 import de.danoeh.antennapod.ui.screen.SearchFragment;
 import de.danoeh.antennapod.net.download.serviceinterface.FeedUpdateManager;
@@ -382,6 +383,16 @@ public abstract class EpisodesListFragment extends Fragment
     public void onEventMainThread(EpisodeDownloadEvent event) {
         for (String downloadUrl : event.getUrls()) {
             int pos = EpisodeDownloadEvent.indexOfItemWithDownloadUrl(episodes, downloadUrl);
+            if (pos >= 0) {
+                listAdapter.notifyItemChangedCompat(pos);
+            }
+        }
+    }
+
+    @Subscribe(sticky = true, threadMode = ThreadMode.MAIN)
+    public void onAdDetectionProgress(AdDetectionProgressEvent event) {
+        for (long mediaId : event.getMediaIds()) {
+            int pos = AdDetectionProgressEvent.indexOfItemWithMediaId(episodes, mediaId);
             if (pos >= 0) {
                 listAdapter.notifyItemChangedCompat(pos);
             }

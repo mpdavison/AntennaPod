@@ -79,6 +79,27 @@ public class FeedPreferences implements Serializable {
         }
     }
 
+    public enum AdDetectionSetting {
+        GLOBAL(0),
+        ENABLED(1),
+        DISABLED(2);
+
+        public final int code;
+
+        AdDetectionSetting(int code) {
+            this.code = code;
+        }
+
+        public static AdDetectionSetting fromCode(int code) {
+            for (AdDetectionSetting s : values()) {
+                if (s.code == code) {
+                    return s;
+                }
+            }
+            return GLOBAL;
+        }
+    }
+
     public enum AutoDownloadSetting {
         DISABLED(0),
         ENABLED(2),
@@ -122,6 +143,7 @@ public class FeedPreferences implements Serializable {
     private int feedSkipEnding;
     private SkipSilence feedSkipSilence;
     private boolean showEpisodeNotification;
+    private AdDetectionSetting adDetectionSetting;
     private final Set<String> tags = new HashSet<>();
 
     public FeedPreferences(long feedID, AutoDownloadSetting autoDownload, AutoDeleteAction autoDeleteAction,
@@ -129,7 +151,7 @@ public class FeedPreferences implements Serializable {
                            String username, String password) {
         this(feedID, autoDownload, true, autoDeleteAction, volumeAdaptionSetting, username, password,
                 new FeedFilter(), SPEED_USE_GLOBAL, 0, 0, SkipSilence.GLOBAL,
-                false, newEpisodesAction, new HashSet<>());
+                false, newEpisodesAction, AdDetectionSetting.GLOBAL, new HashSet<>());
     }
 
     public FeedPreferences(long feedID, AutoDownloadSetting autoDownload, boolean keepUpdated,
@@ -137,7 +159,7 @@ public class FeedPreferences implements Serializable {
                             String username, String password, @NonNull FeedFilter filter,
                             float feedPlaybackSpeed, int feedSkipIntro, int feedSkipEnding, SkipSilence feedSkipSilence,
                             boolean showEpisodeNotification, NewEpisodesAction newEpisodesAction,
-                            Set<String> tags) {
+                            AdDetectionSetting adDetectionSetting, Set<String> tags) {
         this.feedID = feedID;
         this.autoDownload = autoDownload;
         this.keepUpdated = keepUpdated;
@@ -152,6 +174,7 @@ public class FeedPreferences implements Serializable {
         this.feedSkipSilence = feedSkipSilence;
         this.showEpisodeNotification = showEpisodeNotification;
         this.newEpisodesAction = newEpisodesAction;
+        this.adDetectionSetting = adDetectionSetting;
         this.tags.addAll(tags);
     }
 
@@ -314,6 +337,22 @@ public class FeedPreferences implements Serializable {
      * getter for preference if notifications should be display for new episodes.
      * @return true for displaying notifications
      */
+    public AdDetectionSetting getAdDetectionSetting() {
+        return adDetectionSetting;
+    }
+
+    public void setAdDetectionSetting(AdDetectionSetting adDetectionSetting) {
+        this.adDetectionSetting = adDetectionSetting;
+    }
+
+    public boolean isAdDetectionEnabled(boolean globalDefault) {
+        return switch (this.adDetectionSetting) {
+            case ENABLED -> true;
+            case DISABLED -> false;
+            default -> globalDefault;
+        };
+    }
+
     public boolean getShowEpisodeNotification() {
         return showEpisodeNotification;
     }

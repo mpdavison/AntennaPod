@@ -85,6 +85,13 @@
             android:key="includeAutoDownload"
             android:title="@string/auto_download_label" />
 
+        <de.danoeh.antennapod.ui.preferences.preference.MaterialListPreference
+            android:entries="@array/feedAdDetectionItems"
+            android:entryValues="@array/feedAdDetectionValues"
+            android:icon="@drawable/ic_notification_sync"
+            android:key="feedAdDetection"
+            android:title="@string/feed_ad_detection_label" />
+
         <Preference
             android:key="episodeFilter"
             android:summary="@string/episode_filters_description"

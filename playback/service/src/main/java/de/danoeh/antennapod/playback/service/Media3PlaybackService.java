@@ -42,6 +42,7 @@ import de.danoeh.antennapod.playback.base.MediaItemAdapter;
 import de.danoeh.antennapod.playback.base.PlayerStatus;
 import de.danoeh.antennapod.playback.base.RewindAfterPauseUtils;
 import de.danoeh.antennapod.playback.cast.CastPlayerWrapper;
+import de.danoeh.antennapod.playback.service.internal.AdSkipController;
 import de.danoeh.antennapod.playback.service.internal.ExoPlayerUtils;
 import de.danoeh.antennapod.playback.service.internal.MediaLibrarySessionCallback;
 import de.danoeh.antennapod.playback.service.internal.PlayableUtils;
@@ -92,12 +93,18 @@ public class Media3PlaybackService extends MediaLibraryService {
     @Nullable
     private LoudnessEnhancer loudnessEnhancer = null;
     private float volumeAdaptionFactor = 1.0f;
+    private AdSkipController adSkipController;
 
     @UnstableApi
     @Override
     public void onCreate() {
         super.onCreate();
         EventBus.getDefault().register(this);
+        adSkipController = new AdSkipController(this, posMs -> {
+            if (player != null) {
+                player.seekTo(posMs);
+            }
+        });
         DefaultMediaNotificationProvider notificationProvider = new DefaultMediaNotificationProvider(this,
                 session -> R.id.notification_playing,
                 NotificationUtils.CHANNEL_ID_PLAYING, R.string.notification_channel_playing);
@@ -381,6 +388,7 @@ public class Media3PlaybackService extends MediaLibraryService {
                             long position = player.getCurrentPosition();
                             long duration = player.getDuration();
                             float speed = player.getPlaybackParameters().speed;
+                            adSkipController.checkPosition(position, duration);
                             if (duration > 0) {
                                 EventBus.getDefault().post(
                                         new PlaybackPositionEvent((int) position, (int) duration));
@@ -460,9 +468,10 @@ public class Media3PlaybackService extends MediaLibraryService {
                                 applyVolumeAdaption(1.0f);
                             }
                             updatePlaybackPreferences();
+                            adSkipController.onMediaLoaded(media);
                         },
                                 error -> Log.e(TAG, "Failed to load current media", error));
-
+                adSkipController.onReset();
             }
         } catch (NumberFormatException e) {
             Log.e(TAG, "Invalid media ID: " + (player != null && player.getCurrentMediaItem() != null
@@ -663,6 +672,7 @@ public class Media3PlaybackService extends MediaLibraryService {
                                         .getPreferences().getVolumeAdaptionSetting().getAdaptionFactor();
                                 applyVolumeAdaption(1.0f);
                             }
+                            adSkipController.onMediaLoaded(nextMedia);
                             player.setPlayWhenReady(UserPreferences.isFollowQueue());
                             player.setMediaItem(nextMediaItem);
                             player.seekTo(SkipUtils.skipIntroIfNecessary(this, nextMedia));
