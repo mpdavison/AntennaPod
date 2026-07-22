@@ -199,6 +199,63 @@ public class AdSkipControllerTest {
     }
 
     @Test
+    public void undoPreventsReskip() throws Exception {
+        writeTimestamps("complete", 30000, 60000, 120000, 150000);
+        AdSkipController controller = createController();
+        controller.onMediaLoaded(media);
+
+        controller.checkPosition(35000);
+        verify(seekCallback, times(1)).seekTo(60000L);
+
+        controller.suppressAndSeek(0, 35000);
+
+        for (long pos = 35000; pos <= 121000; pos += 1000) {
+            controller.checkPosition(pos);
+        }
+
+        verify(seekCallback, times(1)).seekTo(60000L);
+        verify(seekCallback, times(1)).seekTo(150000L);
+    }
+
+    @Test
+    public void undoDoesNotClearOnRewindDetection() throws Exception {
+        writeTimestamps("complete", 0, 30000);
+        AdSkipController controller = createController();
+        controller.onMediaLoaded(media);
+
+        controller.checkPosition(0);      // first skip fires → seekTo(30000)
+        verify(seekCallback, times(1)).seekTo(30000L);
+
+        controller.suppressAndSeek(0, 0);
+
+        controller.checkPosition(30500);  // large positive delta, early return
+        controller.checkPosition(0);      // rewinds through start → detection fires
+        controller.checkPosition(1000);   // should NOT re-skip because of undo
+
+        verify(seekCallback, times(1)).seekTo(30000L);
+    }
+
+    @Test
+    public void undoPreventsReskipAfterRewindThenRestart() throws Exception {
+        writeTimestamps("complete", 30000, 60000);
+        AdSkipController controller = createController();
+        controller.onMediaLoaded(media);
+
+        controller.checkPosition(35000);
+        verify(seekCallback, times(1)).seekTo(60000L);
+
+        controller.checkPosition(60500);  // past the ad
+        controller.checkPosition(61000);  // normal advance
+        controller.suppressAndSeek(0, 35000);
+
+        controller.checkPosition(35000);   // position update after undo
+        controller.checkPosition(36000);   // advance within ad segment — should not re-skip
+        controller.checkPosition(55000);   // near end — should not re-skip
+
+        verify(seekCallback, times(1)).seekTo(60000L);
+    }
+
+    @Test
     public void reloadsQuicklyWhenFileAppears() throws Exception {
         // Simulate worker still running: file doesn't exist yet when onMediaLoaded fires.
         AdSkipController controller = createController();

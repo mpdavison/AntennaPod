@@ -88,6 +88,12 @@ public class AdSkipController {
     }
 
     @VisibleForTesting
+    void suppressAndSeek(int segmentIndex, long positionMs) {
+        suppressedSegments.add(segmentIndex);
+        seekCallback.seekTo(positionMs);
+    }
+
+    @VisibleForTesting
     void setAdMartyrEnabledForTest(boolean enabled) {
         adMartyrEnabled = enabled;
         if (enabled && adSegments != null) {
@@ -185,7 +191,6 @@ public class AdSkipController {
                 processingComplete = false;
                 furthestPositionMs = 0;
                 skippedSegments.clear();
-                suppressedSegments.clear();
             }
             return;
         }
