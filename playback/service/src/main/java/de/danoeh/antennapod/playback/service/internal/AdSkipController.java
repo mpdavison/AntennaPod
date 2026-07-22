@@ -23,6 +23,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
@@ -192,9 +193,13 @@ public class AdSkipController {
                 furthestPositionMs = 0;
                 skippedSegments.clear();
             } else if (delta < 0 && adSegments != null) {
-                skippedSegments.removeIf(i -> {
-                    return i < adSegments.size() && adSegments.get(i)[0] > positionMs;
-                });
+                Iterator<Integer> it = skippedSegments.iterator();
+                while (it.hasNext()) {
+                    int i = it.next();
+                    if (i < adSegments.size() && adSegments.get(i)[0] > positionMs) {
+                        it.remove();
+                    }
+                }
             }
             return;
         }
