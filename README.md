@@ -46,6 +46,7 @@ Configure ad detection in **Settings → Ad Detection**:
 | Setting | Description |
 |---------|-------------|
 | **Enable ad detection** | Master switch to turn ad detection on/off globally |
+| **Concurrent processes** | Maximum number of episodes to process simultaneously (default: 2) |
 | **Ad Martyr** | Play all ads at the end of the episode instead of skipping them |
 | **Transcription (Whisper)** | Choose a provider profile for audio-to-text transcription (OpenAI, Groq, or custom endpoint) |
 | **Classification (Chat)** | Choose a provider profile for the LLM that identifies ad segments |
