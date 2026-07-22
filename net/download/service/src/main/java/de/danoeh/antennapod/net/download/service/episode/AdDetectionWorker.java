@@ -60,6 +60,8 @@ import java.util.concurrent.TimeUnit;
 public class AdDetectionWorker extends Worker {
     private static final String TAG = "AdDetection";
     static final String KEY_FEED_MEDIA_ID = "feedMediaId";
+    private static final Object SLOT_LOCK = new Object();
+    private static int activeCount = 0;
     private static final long MAX_CHUNK_BYTES = 24L * 1024 * 1024;
     private static final long GAP_FILL_MS = 30_000L;
     private static final long MAX_CHUNK_DURATION_US = 5L * 60L * 1_000_000L;
@@ -173,6 +175,28 @@ public class AdDetectionWorker extends Worker {
     @NonNull
     @Override
     public Result doWork() {
+        synchronized (SLOT_LOCK) {
+            while (activeCount >= AdDetectionPreferences.getConcurrentLimit()) {
+                try {
+                    SLOT_LOCK.wait();
+                } catch (InterruptedException e) {
+                    return Result.retry();
+                }
+            }
+            activeCount++;
+        }
+        try {
+            return doActualWork();
+        } finally {
+            synchronized (SLOT_LOCK) {
+                activeCount--;
+                SLOT_LOCK.notifyAll();
+            }
+        }
+    }
+
+    @NonNull
+    private Result doActualWork() {
         if (!AdDetectionPreferences.isEnabled()) {
             return Result.success();
         }

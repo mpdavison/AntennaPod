@@ -15,6 +15,12 @@
             android:dependency="prefAdDetectionEnabled"
             android:defaultValue="false"/>
 
+    <EditTextPreference
+            android:key="prefAdConcurrentLimit"
+            android:title="@string/pref_ad_concurrent_limit_title"
+            android:summary="@string/pref_ad_concurrent_limit_sum"
+            android:defaultValue="2"/>
+
     <PreferenceCategory
             android:key="prefAdTranscriptionCategory"
             android:title="@string/pref_ad_transcription_category">

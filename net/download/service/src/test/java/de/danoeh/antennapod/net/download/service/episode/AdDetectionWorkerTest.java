@@ -475,4 +475,9 @@ public class AdDetectionWorkerTest {
     public void testIsAdDetectionEnabledForFeedNonexistentMedia() throws Exception {
         assertTrue(AdDetectionWorker.isAdDetectionEnabledForFeed(context, 99999));
     }
+
+    @Test
+    public void testGetConcurrentLimitDefault() {
+        assertEquals(2, AdDetectionPreferences.getConcurrentLimit());
+    }
 }
