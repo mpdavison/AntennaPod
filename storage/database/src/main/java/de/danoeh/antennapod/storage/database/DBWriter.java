@@ -153,7 +153,10 @@ public class DBWriter {
             adapter.close();
         }
 
-        AdDetectionManager.adTimestampsFileFor(context, media).delete();
+        File adFile = AdDetectionManager.adTimestampsFileFor(context, media);
+        if (!adFile.delete() && adFile.exists()) {
+            Log.d(TAG, "Deletion of ad timestamps file failed.");
+        }
         AdDetectionManager.setProgress(media.getId(), -1);
         EventBus.getDefault().post(new AdDetectionProgressEvent(Collections.singleton(media.getId())));
 
