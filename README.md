@@ -17,7 +17,7 @@
 
 ## What about the creators?
 
-If the ad-driven model is the only revenue model that works, then the model stinks. If you believe that listening to the ads is the only way to support creators, then you can still do so with **Ad Martyr mode.** Every ad still plays, just at the end of the episode instead of scattered throughout. You hear the content uninterrupted. Creators still get their ads heard.
+If you believe that listening to the ads is the only way to support creators, then you can still do so with **Ad Martyr mode.** Every ad still plays, just at the end of the episode instead of scattered throughout. You hear the content uninterrupted. Creators still get their ads heard.
 
 ## AdSkip Features
 
