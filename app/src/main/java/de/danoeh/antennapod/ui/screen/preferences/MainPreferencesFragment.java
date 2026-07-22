@@ -1,7 +1,5 @@
 package de.danoeh.antennapod.ui.screen.preferences;
 
-import android.graphics.PorterDuff;
-import android.graphics.PorterDuffColorFilter;
 import android.os.Bundle;
 import android.os.UserManager;
 import androidx.appcompat.app.AppCompatActivity;
@@ -47,7 +45,7 @@ public class MainPreferencesFragment extends AnimatedPreferenceFragment {
         // and afterwards remove the following lines. Please keep in mind that AntennaPod is licensed under the GPL.
         // This means that your application needs to be open-source under the GPL, too.
         // It must also include a prominent copyright notice.        
-        findPreference(PREF_CATEGORY_PROJECT).setVisible(false);
+        findPreference(PREF_CATEGORY_PROJECT).setVisible(true);
         Preference copyrightNotice = new Preference(getContext());
         copyrightNotice.setIcon(R.drawable.ic_info_white);
         copyrightNotice.setSummary("This application is based on AntennaPod."
