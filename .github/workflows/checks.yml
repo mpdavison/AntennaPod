@@ -112,10 +112,13 @@ jobs:
         version:
           - api-level: 23
             target: default
+            disable-animations: true
           - api-level: 30
             target: aosp_atd
+            disable-animations: true
           - api-level: 36
             target: aosp_atd
+            disable-animations: true
     steps:
       - name: Remove unused packages to save space
         run: sudo apt-get remove firefox google-chrome-stable microsoft-edge-stable snapd powershell azure-cli llvm-16 llvm-17 llvm-18 llvm-16-dev llvm-17-dev llvm-18-dev
