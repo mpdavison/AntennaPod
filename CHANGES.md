@@ -108,7 +108,10 @@ Upstream files that were modified:
 - `ui/common/src/main/java/de/danoeh/antennapod/ui/common/CircularProgressBar.java`
 - `ui/common/src/main/res/values/colors.xml`
 - `ui/i18n/src/main/res/values/strings.xml`
+- `ui/preferences/src/main/java/de/danoeh/antennapod/ui/preferences/screen/about/AboutFragment.java`
+- `ui/preferences/src/main/java/de/danoeh/antennapod/ui/preferences/screen/bugreport/BugReportFragment.java`
 - `ui/preferences/src/main/res/values/arrays.xml`
+- `ui/preferences/src/main/res/xml/preferences_about.xml`
 - `ui/preferences/src/main/res/xml/preferences_import_export.xml`
 - `ui/preferences/src/main/res/xml/preferences.xml`
 - `ui/statistics/src/main/java/de/danoeh/antennapod/ui/statistics/feed/FeedStatisticsFragment.java`

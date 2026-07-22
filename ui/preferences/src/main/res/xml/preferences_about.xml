@@ -22,7 +22,7 @@
     <Preference
             android:key="about_privacy_policy"
             android:icon="@drawable/ic_policy"
-            android:summary="www.antennapod.org/privacy"
+            android:summary="github.com/mpdavison/AntennaPod"
             android:title="@string/privacy_policy"/>
     <Preference
             android:key="about_licenses"
