@@ -31,7 +31,6 @@ import de.danoeh.antennapod.ui.screen.episode.ItemPagerFragment;
  */
 public class EpisodeItemListAdapter extends SelectableAdapter<EpisodeItemViewHolder>
         implements View.OnCreateContextMenuListener {
-
     private final WeakReference<FragmentActivity> mainActivityRef;
     private List<FeedItem> episodes = new ArrayList<>();
     private FeedItem longPressedItem;

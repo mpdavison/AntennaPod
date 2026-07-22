@@ -26,6 +26,7 @@ New files not present in upstream:
 - `net/download/service-interface/src/test/java/de/danoeh/antennapod/net/download/serviceinterface/AdDetectionManagerTest.java`
 - `net/download/service/src/main/java/de/danoeh/antennapod/net/download/service/episode/AdDetectionWorker.java`
 - `net/download/service/src/test/java/de/danoeh/antennapod/net/download/service/episode/AdDetectionWorkerTest.java`
+- `nostr-config.toml`
 - `playback/service/src/main/java/de/danoeh/antennapod/playback/service/internal/AdProxyTimestampPoller.java`
 - `playback/service/src/main/java/de/danoeh/antennapod/playback/service/internal/AdSkipController.java`
 - `playback/service/src/test/java/de/danoeh/antennapod/playback/service/internal/AdSkipControllerTest.java`

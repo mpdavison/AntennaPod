@@ -433,13 +433,16 @@ public class ItemFragment extends Fragment {
                 if (generation != loadGeneration) {
                     return;
                 }
+                if (result == null) {
+                    requireActivity().getSupportFragmentManager().popBackStack();
+                    return;
+                }
                 viewBinding.progbarLoading.setVisibility(View.GONE);
                 viewBinding.header.setVisibility(View.VISIBLE);
                 item = result;
                 onFragmentLoaded();
                 itemsLoaded = true;
-            }, error -> Log.e(TAG, Log.getStackTraceString(error)),
-                    () -> requireActivity().getSupportFragmentManager().popBackStack());
+            }, error -> Log.e(TAG, Log.getStackTraceString(error)));
     }
 
     @Nullable
