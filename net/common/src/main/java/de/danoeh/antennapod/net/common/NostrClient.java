@@ -41,11 +41,17 @@ public class NostrClient {
     private static final int EVENT_KIND = 31337;
     private static final int RELAY_TIMEOUT_MS = 4000;
 
-    static final String[] RELAYS = {
-        "wss://adskip.1681248.com",
-        "wss://relay.damus.io",
-        "wss://relay.primal.net"
-    };
+    private static String[] getRelays() {
+        String relaysEnv = System.getenv("NOSTR_RELAYS");
+        if (relaysEnv != null && !relaysEnv.trim().isEmpty()) {
+            return relaysEnv.split(",");
+        }
+        return new String[]{
+            "wss://adskip.1681248.com",
+            "wss://relay.damus.io",
+            "wss://relay.primal.net"
+        };
+    }
 
     private static final X9ECParameters CURVE;
     private static final BigInteger N;
@@ -224,7 +230,7 @@ public class NostrClient {
                     .readTimeout(0, TimeUnit.MILLISECONDS)
                     .build();
 
-            for (final String relayUrl : RELAYS) {
+            for (final String relayUrl : getRelays()) {
                 final String subId = "antennapod-" + md5.substring(0, 8);
                 JSONArray reqMsg = new JSONArray();
                 reqMsg.put("REQ");
@@ -311,7 +317,7 @@ public class NostrClient {
                     .readTimeout(0, TimeUnit.MILLISECONDS)
                     .build();
 
-            for (String relayUrl : RELAYS) {
+            for (String relayUrl : getRelays()) {
                 final boolean[] accepted = {false};
                 Request wsRequest = new Request.Builder().url(relayUrl).build();
                 client.newWebSocket(wsRequest, new WebSocketListener() {

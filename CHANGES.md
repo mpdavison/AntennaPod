@@ -42,6 +42,7 @@ New files not present in upstream:
 
 Upstream files that were modified:
 
+- `.env`
 - `AGENTS.md`
 - `app/build.gradle`
 - `app/src/main/AndroidManifest.xml`
