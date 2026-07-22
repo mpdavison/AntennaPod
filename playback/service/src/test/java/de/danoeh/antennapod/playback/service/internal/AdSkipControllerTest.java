@@ -199,6 +199,28 @@ public class AdSkipControllerTest {
     }
 
     @Test
+    public void seekBackBeforeAdReskipsWhenReachedAgain() throws Exception {
+        writeTimestamps("complete", 30000, 60000);
+        AdSkipController controller = createController();
+        controller.onMediaLoaded(media);
+
+        controller.checkPosition(35000);
+        verify(seekCallback, times(1)).seekTo(60000L);
+
+        for (long pos = 60000; pos <= 65000; pos += 1000) {
+            controller.checkPosition(pos);
+        }
+
+        controller.checkPosition(20000);
+
+        for (long pos = 20000; pos <= 35000; pos += 1000) {
+            controller.checkPosition(pos);
+        }
+
+        verify(seekCallback, times(2)).seekTo(60000L);
+    }
+
+    @Test
     public void undoPreventsReskip() throws Exception {
         writeTimestamps("complete", 30000, 60000, 120000, 150000);
         AdSkipController controller = createController();

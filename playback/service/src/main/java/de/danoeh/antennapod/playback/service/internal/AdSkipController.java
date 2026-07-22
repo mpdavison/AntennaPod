@@ -191,6 +191,10 @@ public class AdSkipController {
                 processingComplete = false;
                 furthestPositionMs = 0;
                 skippedSegments.clear();
+            } else if (delta < 0 && adSegments != null) {
+                skippedSegments.removeIf(i -> {
+                    return i < adSegments.size() && adSegments.get(i)[0] > positionMs;
+                });
             }
             return;
         }
