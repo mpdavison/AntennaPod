@@ -8,8 +8,10 @@ import androidx.test.platform.app.InstrumentationRegistry;
 import de.danoeh.antennapod.model.feed.Feed;
 import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
+import de.danoeh.antennapod.net.download.serviceinterface.AdDetectionManager;
 import de.danoeh.antennapod.net.sync.serviceinterface.SynchronizationQueue;
 import de.danoeh.antennapod.net.sync.serviceinterface.SynchronizationQueueStub;
+import de.danoeh.antennapod.storage.preferences.PlaybackPreferences;
 import de.danoeh.antennapod.storage.preferences.UserPreferences;
 import org.junit.After;
 import org.junit.Before;
@@ -17,10 +19,14 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 
 @RunWith(RobolectricTestRunner.class)
 public class DBWriterAdStatsTest {
@@ -31,6 +37,7 @@ public class DBWriterAdStatsTest {
     public void setUp() {
         Context context = InstrumentationRegistry.getInstrumentation().getContext();
         UserPreferences.init(context);
+        PlaybackPreferences.init(context);
         PodDBAdapter.init(context);
         PodDBAdapter.deleteDatabase();
         SynchronizationQueue.setInstance(new SynchronizationQueueStub());
@@ -78,6 +85,37 @@ public class DBWriterAdStatsTest {
         c.moveToFirst();
         assertEquals(8, c.getLong(c.getColumnIndexOrThrow("ad_segments")));
         assertEquals(240000, c.getLong(c.getColumnIndexOrThrow("ad_duration")));
+        c.close();
+    }
+
+    @Test
+    public void testDeleteFeedMediaCleansUpAdTimestamps() throws Exception {
+        Context context = InstrumentationRegistry.getInstrumentation().getContext();
+        FeedMedia media = DBReader.getFeedMedia(mediaId);
+        media.setDownloaded(true, System.currentTimeMillis());
+        media.setLocalFileUrl("/tmp/fake-downloaded-file-" + mediaId);
+
+        AdDetectionManager.setProgress(mediaId, 75);
+        DBWriter.setFeedMediaAdStats(mediaId, 3, 90000).get(5, TimeUnit.SECONDS);
+
+        File timestampsFile = AdDetectionManager.adTimestampsFileFor(context, media);
+        timestampsFile.getParentFile().mkdirs();
+        try (FileOutputStream fos = new FileOutputStream(timestampsFile)) {
+            fos.write("{\"status\":\"complete\",\"ads\":[]}".getBytes());
+        }
+
+        assertEquals(75, AdDetectionManager.getProgress(mediaId));
+
+        DBWriter.deleteFeedMediaOfItem(context, media).get(10, TimeUnit.SECONDS);
+
+        assertFalse("Timestamps file should be deleted", timestampsFile.exists());
+        assertEquals(-1, AdDetectionManager.getProgress(mediaId));
+
+        Cursor c = adapter.getFeedStatisticsCursor(false, 0, Long.MAX_VALUE, 0);
+        assertNotNull(c);
+        c.moveToFirst();
+        assertEquals(0, c.getLong(c.getColumnIndexOrThrow("ad_segments")));
+        assertEquals(0, c.getLong(c.getColumnIndexOrThrow("ad_duration")));
         c.close();
     }
 }

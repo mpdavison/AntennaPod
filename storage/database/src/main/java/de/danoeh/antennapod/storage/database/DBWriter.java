@@ -12,9 +12,11 @@ import androidx.annotation.Nullable;
 import androidx.documentfile.provider.DocumentFile;
 
 import com.google.common.util.concurrent.Futures;
+import de.danoeh.antennapod.event.AdDetectionProgressEvent;
 import de.danoeh.antennapod.event.DownloadLogEvent;
 
 import de.danoeh.antennapod.model.feed.FeedItemFilter;
+import de.danoeh.antennapod.net.download.serviceinterface.AdDetectionManager;
 import de.danoeh.antennapod.net.download.serviceinterface.AutoDownloadManager;
 import de.danoeh.antennapod.net.download.serviceinterface.DownloadServiceInterface;
 import de.danoeh.antennapod.net.download.serviceinterface.FeedUpdateManager;
@@ -147,8 +149,13 @@ public class DBWriter {
             PodDBAdapter adapter = PodDBAdapter.getInstance();
             adapter.open();
             adapter.setMediaDownloadInformation(media);
+            adapter.setFeedMediaAdStats(media.getId(), 0, 0);
             adapter.close();
         }
+
+        AdDetectionManager.adTimestampsFileFor(context, media).delete();
+        AdDetectionManager.setProgress(media.getId(), -1);
+        EventBus.getDefault().post(new AdDetectionProgressEvent(Collections.singleton(media.getId())));
 
         if (media.getId() == PlaybackPreferences.getCurrentlyPlayingFeedMediaId()) {
             PlaybackPreferences.writeNoMediaPlaying();
