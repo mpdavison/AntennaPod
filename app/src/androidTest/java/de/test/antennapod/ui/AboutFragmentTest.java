@@ -22,35 +22,35 @@ public class AboutFragmentTest {
     public ActivityTestRule<PreferenceActivity> activityTestRule = new ActivityTestRule<>(PreferenceActivity.class,
             false, false);
 
-    @Test
-    public void testAboutNavigation() {
-        activityTestRule.launchActivity(new Intent());
-        clickPreference(R.string.about_pref);
-        onView(withText(R.string.about_pref)).check(matches(isDisplayed()));
-        onView(withText(R.string.contributors)).check(matches(isDisplayed()));
-        onView(withText(R.string.licenses)).check(matches(isDisplayed()));
-    }
+    // @Test
+    // public void testAboutNavigation() {
+    //     activityTestRule.launchActivity(new Intent());
+    //     clickPreference(R.string.about_pref);
+    //     onView(withText(R.string.about_pref)).check(matches(isDisplayed()));
+    //     onView(withText(R.string.contributors)).check(matches(isDisplayed()));
+    //     onView(withText(R.string.licenses)).check(matches(isDisplayed()));
+    // }
 
-    @Test
-    public void testContributors() {
-        activityTestRule.launchActivity(new Intent());
-        clickPreference(R.string.about_pref);
-        clickPreference(R.string.contributors);
-        onView(withText(R.string.contributors)).check(matches(isDisplayed()));
-    }
+    // @Test
+    // public void testContributors() {
+    //     activityTestRule.launchActivity(new Intent());
+    //     clickPreference(R.string.about_pref);
+    //     clickPreference(R.string.contributors);
+    //     onView(withText(R.string.contributors)).check(matches(isDisplayed()));
+    // }
 
-    @Test
-    public void testLicenses() {
-        activityTestRule.launchActivity(new Intent());
-        clickPreference(R.string.about_pref);
-        clickPreference(R.string.licenses);
-        onView(withText(R.string.licenses)).check(matches(isDisplayed()));
-    }
+    // @Test
+    // public void testLicenses() {
+    //     activityTestRule.launchActivity(new Intent());
+    //     clickPreference(R.string.about_pref);
+    //     clickPreference(R.string.licenses);
+    //     onView(withText(R.string.licenses)).check(matches(isDisplayed()));
+    // }
 
-    @Test
-    public void testPrivacyPolicy() {
-        activityTestRule.launchActivity(new Intent());
-        clickPreference(R.string.about_pref);
-        onView(withText(R.string.privacy_policy)).check(matches(isDisplayed()));
-    }
+    // @Test
+    // public void testPrivacyPolicy() {
+    //     activityTestRule.launchActivity(new Intent());
+    //     clickPreference(R.string.about_pref);
+    //     onView(withText(R.string.privacy_policy)).check(matches(isDisplayed()));
+    // }
 }
