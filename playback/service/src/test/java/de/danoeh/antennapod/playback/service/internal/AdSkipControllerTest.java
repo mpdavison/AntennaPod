@@ -5,10 +5,13 @@ import de.danoeh.antennapod.model.feed.Feed;
 import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.model.feed.FeedPreferences;
+import de.danoeh.antennapod.storage.preferences.UserPreferences;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
+import org.mockito.MockedStatic;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -18,6 +21,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -27,6 +31,8 @@ public class AdSkipControllerTest {
 
     @Rule
     public TemporaryFolder tempFolder = new TemporaryFolder();
+
+    private MockedStatic<UserPreferences> userPreferencesMock;
 
     private AdSkipController.SeekCallback seekCallback;
     private Context context;
@@ -42,14 +48,23 @@ public class AdSkipControllerTest {
         when(context.getString(anyInt(), any())).thenReturn("");
         when(context.getCacheDir()).thenReturn(tempFolder.getRoot());
 
+        userPreferencesMock = mockStatic(UserPreferences.class);
+        userPreferencesMock.when(() -> UserPreferences.getDataFolder("adtimestamps"))
+                .thenReturn(new File(tempFolder.getRoot(), "adtimestamps"));
+
         mediaFile = tempFolder.newFile("episode.mp3");
-        timestampsFile = new File(new File(tempFolder.getRoot(), "adtimestamps"), "1.adtimestamps");
+        timestampsFile = new File(new File(tempFolder.getRoot(), "adtimestamps"), "1.json");
         timestampsFile.getParentFile().mkdirs();
 
         media = mock(FeedMedia.class);
         when(media.getId()).thenReturn(1L);
         when(media.getDownloadUrl()).thenReturn("https://example.com/episode.mp3");
         when(media.getLocalFileUrl()).thenReturn(mediaFile.getAbsolutePath());
+    }
+
+    @After
+    public void tearDown() {
+        userPreferencesMock.close();
     }
 
     private AdSkipController createController() {

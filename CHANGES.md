@@ -78,6 +78,7 @@ Upstream files that were modified:
 - `.gitignore`
 - `config/spotbugs/exclude.xml`
 - `gradle/libs.versions.toml`
+- `model/src/main/java/de/danoeh/antennapod/model/feed/FeedMedia.java`
 - `model/src/main/java/de/danoeh/antennapod/model/feed/FeedPreferences.java`
 - `net/common/build.gradle`
 - `net/download/service-interface/build.gradle`
