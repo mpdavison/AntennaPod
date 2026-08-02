@@ -24,7 +24,7 @@ public class AboutFragmentTest {
     //         false, false);
 
 
-        @Test void noop() {
+        @Test public void noop() {
             // assert something trivial to avoid "No runnable methods" error
             assertTrue(true);
         }
