@@ -573,6 +573,12 @@
     <string name="pref_ad_martyr_enabled_sum">Play all ads at the end of the episode instead of skipping them</string>
     <string name="pref_ad_concurrent_limit_title">Concurrent processes</string>
     <string name="pref_ad_concurrent_limit_sum">Maximum number of episodes to process simultaneously</string>
+    <string name="pref_ad_skip_sound_title">Skip sound</string>
+    <string name="pref_ad_skip_sound_sum">Sound played when an ad is skipped</string>
+    <string name="ad_skip_sound_beep">Beep</string>
+    <string name="ad_skip_sound_ding">Ding</string>
+    <string name="ad_skip_sound_custom">Custom</string>
+    <string name="pref_ad_skip_sound_custom_sum">Choose an audio file from your device</string>
     <string name="ad_detection_summary_processing">Ad detection in progress\u2026</string>
     <string name="ad_detection_summary_none">No ads detected</string>
     <string name="ad_detection_summary_ads">Ads segments: %1$d (%2$s total)</string>

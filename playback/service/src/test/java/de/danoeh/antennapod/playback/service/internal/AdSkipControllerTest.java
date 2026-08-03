@@ -5,6 +5,7 @@ import de.danoeh.antennapod.model.feed.Feed;
 import de.danoeh.antennapod.model.feed.FeedItem;
 import de.danoeh.antennapod.model.feed.FeedMedia;
 import de.danoeh.antennapod.model.feed.FeedPreferences;
+import de.danoeh.antennapod.storage.preferences.AdDetectionPreferences;
 import de.danoeh.antennapod.storage.preferences.UserPreferences;
 import org.junit.After;
 import org.junit.Before;
@@ -500,5 +501,55 @@ public class AdSkipControllerTest {
         controller.checkPosition(298000, -1);
 
         verify(seekCallback, never()).seekTo(anyLong());
+    }
+
+    // --- Skip sound mode tests ---
+
+    @Test
+    public void dingModeStillSkips() throws Exception {
+        writeTimestamps("complete", 30000, 60000);
+        try (MockedStatic<AdDetectionPreferences> adPrefs = mockStatic(AdDetectionPreferences.class)) {
+            adPrefs.when(AdDetectionPreferences::getSkipSoundMode)
+                    .thenReturn(AdDetectionPreferences.SKIP_SOUND_DING);
+            AdSkipController controller = createController();
+            controller.onMediaLoaded(media);
+
+            controller.checkPosition(35000);
+
+            verify(seekCallback).seekTo(60000L);
+        }
+    }
+
+    @Test
+    public void customModeWithoutUriFallsBackToBeep() throws Exception {
+        writeTimestamps("complete", 30000, 60000);
+        try (MockedStatic<AdDetectionPreferences> adPrefs = mockStatic(AdDetectionPreferences.class)) {
+            adPrefs.when(AdDetectionPreferences::getSkipSoundMode)
+                    .thenReturn(AdDetectionPreferences.SKIP_SOUND_CUSTOM);
+            adPrefs.when(AdDetectionPreferences::getSkipSoundCustomUri).thenReturn(null);
+            AdSkipController controller = createController();
+            controller.onMediaLoaded(media);
+
+            controller.checkPosition(35000);
+
+            verify(seekCallback).seekTo(60000L);
+        }
+    }
+
+    @Test
+    public void customModeWithUriStillSkips() throws Exception {
+        writeTimestamps("complete", 30000, 60000);
+        try (MockedStatic<AdDetectionPreferences> adPrefs = mockStatic(AdDetectionPreferences.class)) {
+            adPrefs.when(AdDetectionPreferences::getSkipSoundMode)
+                    .thenReturn(AdDetectionPreferences.SKIP_SOUND_CUSTOM);
+            adPrefs.when(AdDetectionPreferences::getSkipSoundCustomUri)
+                    .thenReturn("content://media/external/audio/1");
+            AdSkipController controller = createController();
+            controller.onMediaLoaded(media);
+
+            controller.checkPosition(35000);
+
+            verify(seekCallback).seekTo(60000L);
+        }
     }
 }

@@ -28,7 +28,9 @@ public class AdSkipPreferencesTransporter {
             AdDetectionPreferences.PREF_AD_TRANSCRIPTION_PROFILES,
             AdDetectionPreferences.PREF_AD_TRANSCRIPTION_ACTIVE_ID,
             AdDetectionPreferences.PREF_AD_CHAT_PROFILES,
-            AdDetectionPreferences.PREF_AD_CHAT_ACTIVE_ID
+            AdDetectionPreferences.PREF_AD_CHAT_ACTIVE_ID,
+            AdDetectionPreferences.PREF_AD_SKIP_SOUND_MODE,
+            AdDetectionPreferences.PREF_AD_SKIP_SOUND_CUSTOM_URI
     };
 
     private static final String[] BOOLEAN_KEYS = {

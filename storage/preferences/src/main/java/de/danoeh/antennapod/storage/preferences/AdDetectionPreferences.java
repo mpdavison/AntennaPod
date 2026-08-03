@@ -20,6 +20,12 @@ public abstract class AdDetectionPreferences {
     public static final String PREF_AD_CHAT_ACTIVE_ID = "prefAdChatActiveId";
     public static final String PREF_NOSTR_ENABLED = "prefNostrEnabled";
     public static final String PREF_AD_CONCURRENT_LIMIT = "prefAdConcurrentLimit";
+    public static final String PREF_AD_SKIP_SOUND_MODE = "prefAdSkipSoundMode";
+    public static final String PREF_AD_SKIP_SOUND_CUSTOM_URI = "prefAdSkipSoundCustomUri";
+
+    public static final String SKIP_SOUND_BEEP = "beep";
+    public static final String SKIP_SOUND_DING = "ding";
+    public static final String SKIP_SOUND_CUSTOM = "custom";
 
     public static final int ROLE_TRANSCRIPTION = 1;
     public static final int ROLE_CHAT = 2;
@@ -173,6 +179,28 @@ public abstract class AdDetectionPreferences {
             return false;
         }
         return prefs.getBoolean(PREF_AD_MARTYR_ENABLED, false);
+    }
+
+    public static String getSkipSoundMode() {
+        if (prefs == null) {
+            return SKIP_SOUND_BEEP;
+        }
+        return prefs.getString(PREF_AD_SKIP_SOUND_MODE, SKIP_SOUND_BEEP);
+    }
+
+    public static String getSkipSoundCustomUri() {
+        if (prefs == null) {
+            return null;
+        }
+        String uri = prefs.getString(PREF_AD_SKIP_SOUND_CUSTOM_URI, null);
+        return uri == null || uri.isEmpty() ? null : uri;
+    }
+
+    public static void setSkipSoundCustomUri(String uri) {
+        if (prefs == null) {
+            return;
+        }
+        prefs.edit().putString(PREF_AD_SKIP_SOUND_CUSTOM_URI, uri).apply();
     }
 
     public static List<AdProviderProfile> getProfiles(int role) {

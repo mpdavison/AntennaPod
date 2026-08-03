@@ -29,6 +29,7 @@ New files not present in upstream:
 - `nostr-config.toml`
 - `playback/service/src/main/java/de/danoeh/antennapod/playback/service/internal/AdProxyTimestampPoller.java`
 - `playback/service/src/main/java/de/danoeh/antennapod/playback/service/internal/AdSkipController.java`
+- `playback/service/src/main/res/raw/ad_skip_ding.ogg`
 - `playback/service/src/test/java/de/danoeh/antennapod/playback/service/internal/AdSkipControllerTest.java`
 - `run.sh`
 - `storage/importexport/src/main/java/de/danoeh/antennapod/storage/importexport/AdSkipPreferencesTransporter.java`

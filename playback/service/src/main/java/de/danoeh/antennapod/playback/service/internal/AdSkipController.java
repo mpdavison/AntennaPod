@@ -2,7 +2,9 @@ package de.danoeh.antennapod.playback.service.internal;
 
 import android.content.Context;
 import android.media.AudioManager;
+import android.media.MediaPlayer;
 import android.media.ToneGenerator;
+import android.net.Uri;
 import android.util.Log;
 import androidx.annotation.VisibleForTesting;
 import de.danoeh.antennapod.net.download.serviceinterface.AdDetectionManager;
@@ -233,7 +235,7 @@ public class AdSkipController {
                     skippedSegments.add(i);
                     final long skipTo = seg[1];
                     Log.d(TAG, "Ad skip: jumping from " + positionMs + " to " + skipTo);
-                    playBeep();
+                    playSkipSound();
                     long skippedFrom = positionMs;
                     final int segIdx = i;
                     long adDurationMs = skipTo - seg[0];
@@ -331,6 +333,43 @@ public class AdSkipController {
             return String.format(java.util.Locale.US, "%d:%02d:%02d", hours, minutes, seconds);
         }
         return String.format(java.util.Locale.US, "%d:%02d", minutes, seconds);
+    }
+
+    private void playSkipSound() {
+        String mode = AdDetectionPreferences.getSkipSoundMode();
+        if (AdDetectionPreferences.SKIP_SOUND_DING.equals(mode)) {
+            playDing();
+        } else if (AdDetectionPreferences.SKIP_SOUND_CUSTOM.equals(mode)
+                && AdDetectionPreferences.getSkipSoundCustomUri() != null) {
+            playCustomSound();
+        } else {
+            playBeep();
+        }
+    }
+
+    private void playDing() {
+        try {
+            MediaPlayer player = MediaPlayer.create(context, R.raw.ad_skip_ding);
+            if (player != null) {
+                player.setOnCompletionListener(MediaPlayer::release);
+                player.start();
+            }
+        } catch (RuntimeException e) {
+            Log.d(TAG, "Could not play skip ding: " + e.getMessage());
+        }
+    }
+
+    private void playCustomSound() {
+        try {
+            Uri uri = Uri.parse(AdDetectionPreferences.getSkipSoundCustomUri());
+            MediaPlayer player = MediaPlayer.create(context, uri);
+            if (player != null) {
+                player.setOnCompletionListener(MediaPlayer::release);
+                player.start();
+            }
+        } catch (RuntimeException e) {
+            Log.d(TAG, "Could not play custom skip sound: " + e.getMessage());
+        }
     }
 
     private void playBeep() {

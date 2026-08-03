@@ -22,6 +22,22 @@
             android:defaultValue="2"/>
 
     <PreferenceCategory
+            android:key="prefAdSkipSoundCategory"
+            android:title="@string/pref_ad_skip_sound_title">
+        <de.danoeh.antennapod.ui.preferences.preference.MaterialListPreference
+                android:key="prefAdSkipSoundMode"
+                android:title="@string/pref_ad_skip_sound_title"
+                android:summary="@string/pref_ad_skip_sound_sum"
+                android:entries="@array/adSkipSoundItems"
+                android:entryValues="@array/adSkipSoundValues"
+                android:defaultValue="beep"/>
+        <Preference
+                android:key="prefAdSkipSoundCustom"
+                android:title="@string/ad_skip_sound_custom"
+                android:summary="@string/pref_ad_skip_sound_custom_sum"/>
+    </PreferenceCategory>
+
+    <PreferenceCategory
             android:key="prefAdTranscriptionCategory"
             android:title="@string/pref_ad_transcription_category">
         <de.danoeh.antennapod.ui.preferences.preference.MaterialListPreference

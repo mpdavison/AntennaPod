@@ -41,6 +41,19 @@
         <item>2</item>
     </string-array>
 
+    <!-- Keep consistent with AdDetectionPreferences skip sound modes -->
+    <string-array name="adSkipSoundItems">
+        <item>@string/ad_skip_sound_beep</item>
+        <item>@string/ad_skip_sound_ding</item>
+        <item>@string/ad_skip_sound_custom</item>
+    </string-array>
+
+    <string-array name="adSkipSoundValues">
+        <item>beep</item>
+        <item>ding</item>
+        <item>custom</item>
+    </string-array>
+
     <string-array name="spnVolumeAdaptationItems">
         <item>@string/feed_volume_reduction_heavy</item>
         <item>@string/feed_volume_reduction_light</item>
