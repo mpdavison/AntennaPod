@@ -5,6 +5,7 @@ import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.media.ToneGenerator;
 import android.net.Uri;
+import android.os.SystemClock;
 import android.util.Log;
 import androidx.annotation.VisibleForTesting;
 import de.danoeh.antennapod.net.download.serviceinterface.AdDetectionManager;
@@ -58,6 +59,8 @@ public class AdSkipController {
     private boolean isPlayingAdMartyr = false;
     private int currentMartyrSegmentIndex = -1;
     private ToneGenerator toneGenerator;
+    private long lastBeepTimestampMs = 0;
+    private MediaPlayer skipSoundPlayer;
 
     public AdSkipController(Context context, SeekCallback seekCallback) {
         this.context = context;
@@ -79,7 +82,8 @@ public class AdSkipController {
         pendingAdSegments.clear();
         isPlayingAdMartyr = false;
         currentMartyrSegmentIndex = -1;
-        if (toneGenerator != null) {
+        if (toneGenerator != null
+                && SystemClock.elapsedRealtime() - lastBeepTimestampMs > 200) {
             toneGenerator.release();
             toneGenerator = null;
         }
@@ -351,8 +355,7 @@ public class AdSkipController {
         try {
             MediaPlayer player = MediaPlayer.create(context, R.raw.ad_skip_ding);
             if (player != null) {
-                player.setOnCompletionListener(MediaPlayer::release);
-                player.start();
+                startSkipSound(player);
             }
         } catch (RuntimeException e) {
             Log.d(TAG, "Could not play skip ding: " + e.getMessage());
@@ -364,11 +367,32 @@ public class AdSkipController {
             Uri uri = Uri.parse(AdDetectionPreferences.getSkipSoundCustomUri());
             MediaPlayer player = MediaPlayer.create(context, uri);
             if (player != null) {
-                player.setOnCompletionListener(MediaPlayer::release);
-                player.start();
+                startSkipSound(player);
             }
         } catch (RuntimeException e) {
             Log.d(TAG, "Could not play custom skip sound: " + e.getMessage());
+        }
+    }
+
+    private void startSkipSound(MediaPlayer player) {
+        if (skipSoundPlayer != null) {
+            skipSoundPlayer.release();
+        }
+        skipSoundPlayer = player;
+        player.setOnCompletionListener(mp -> {
+            mp.release();
+            if (skipSoundPlayer == mp) {
+                skipSoundPlayer = null;
+            }
+        });
+        try {
+            player.start();
+        } catch (RuntimeException e) {
+            Log.d(TAG, "Could not start skip sound: " + e.getMessage());
+            if (skipSoundPlayer == player) {
+                skipSoundPlayer = null;
+            }
+            player.release();
         }
     }
 
@@ -377,6 +401,7 @@ public class AdSkipController {
             if (toneGenerator == null) {
                 toneGenerator = new ToneGenerator(AudioManager.STREAM_MUSIC, 80);
             }
+            lastBeepTimestampMs = SystemClock.elapsedRealtime();
             toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP, 150);
         } catch (RuntimeException e) {
             Log.d(TAG, "Could not play skip beep: " + e.getMessage());
