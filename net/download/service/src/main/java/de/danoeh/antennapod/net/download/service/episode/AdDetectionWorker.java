@@ -219,12 +219,6 @@ public class AdDetectionWorker extends Worker {
         if (!tmp.delete()) {
             Log.w(TAG, "Failed to delete old timestamps file");
         }
-        String transcriptionApiKey = AdDetectionPreferences.getTranscriptionApiKey();
-        String chatApiKey = AdDetectionPreferences.getChatApiKey();
-        if (transcriptionApiKey.isEmpty() || chatApiKey.isEmpty()) {
-            Log.w(TAG, "API keys not configured, skipping ad detection");
-            return Result.success();
-        }
         String episodeUrl = media.getDownloadUrl();
         if (episodeUrl == null || episodeUrl.isEmpty()) {
             return Result.success();
@@ -300,6 +294,13 @@ public class AdDetectionWorker extends Worker {
             } catch (Exception e) {
                 Log.w(TAG, "Nostr check failed, falling back to local detection", e);
             }
+        }
+
+        String transcriptionApiKey = AdDetectionPreferences.getTranscriptionApiKey();
+        String chatApiKey = AdDetectionPreferences.getChatApiKey();
+        if (transcriptionApiKey.isEmpty() || chatApiKey.isEmpty()) {
+            Log.w(TAG, "API keys not configured, skipping ad detection");
+            return Result.success();
         }
 
         List<AudioChunk> chunks = null;
