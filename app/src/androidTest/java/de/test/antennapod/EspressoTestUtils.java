@@ -41,6 +41,8 @@ import static androidx.test.espresso.matcher.ViewMatchers.isDescendantOfA;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.isRoot;
 import static androidx.test.espresso.matcher.ViewMatchers.withContentDescription;
+import static androidx.test.espresso.matcher.ViewMatchers.withEffectiveVisibility;
+import static androidx.test.espresso.matcher.ViewMatchers.Visibility;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 import static org.hamcrest.Matchers.allOf;
@@ -212,7 +214,8 @@ public class EspressoTestUtils {
     public static void clickPreference(@StringRes int title) {
         onView(withId(R.id.recycler_view)).perform(
                 RecyclerViewActions.actionOnItem(
-                        allOf(hasDescendant(withText(title)),
+                        allOf(hasDescendant(allOf(withText(title),
+                                        withEffectiveVisibility(Visibility.VISIBLE))),
                                 hasDescendant(withId(android.R.id.widget_frame))),
                         click()));
     }

@@ -46,6 +46,7 @@ Upstream files that were modified:
 - `.env`
 - `AGENTS.md`
 - `app/build.gradle`
+- `app/src/androidTest/java/de/test/antennapod/EspressoTestUtils.java`
 - `app/src/main/AndroidManifest.xml`
 - `app/src/main/java/de/danoeh/antennapod/activity/MainActivity.java`
 - `app/src/main/java/de/danoeh/antennapod/ClientConfigurator.java`
