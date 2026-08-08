@@ -7,9 +7,6 @@ GNU General Public License v3.0. Last modified: July 2026.
 
 New files not present in upstream:
 
-- `adskip/adskip.py`
-- `adskip/requirements.txt`
-- `adskip/test_adskip.py`
 - `app/src/main/java/de/danoeh/antennapod/ui/screen/preferences/AdDetectionPreferencesFragment.java`
 - `app/src/main/java/de/danoeh/antennapod/ui/screen/preferences/AdProviderProfileEditorFragment.java`
 - `app/src/main/java/de/danoeh/antennapod/ui/screen/preferences/AdProviderProfileListFragment.java`
@@ -26,8 +23,6 @@ New files not present in upstream:
 - `net/download/service-interface/src/test/java/de/danoeh/antennapod/net/download/serviceinterface/AdDetectionManagerTest.java`
 - `net/download/service/src/main/java/de/danoeh/antennapod/net/download/service/episode/AdDetectionWorker.java`
 - `net/download/service/src/test/java/de/danoeh/antennapod/net/download/service/episode/AdDetectionWorkerTest.java`
-- `nostr-config.toml`
-- `playback/service/src/main/java/de/danoeh/antennapod/playback/service/internal/AdProxyTimestampPoller.java`
 - `playback/service/src/main/java/de/danoeh/antennapod/playback/service/internal/AdSkipController.java`
 - `playback/service/src/main/res/raw/ad_skip_ding.ogg`
 - `playback/service/src/test/java/de/danoeh/antennapod/playback/service/internal/AdSkipControllerTest.java`
