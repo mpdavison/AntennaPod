@@ -370,8 +370,12 @@ public class AdDetectionWorker extends Worker {
                         key = NostrClient.generatePrivateKey();
                         NostrPreferences.setKeyPair(key);
                     }
-                    NostrClient.publishAdTimestamps(md5Hash, ads, feedUrl,
-                            episodeTitle, key);
+                    boolean published = NostrClient.publishAdTimestamps(md5Hash, ads,
+                            feedUrl, episodeTitle, key);
+                    if (!published) {
+                        Log.w(TAG, "Nostr publish not acknowledged by any relay for "
+                                + episodeTitle);
+                    }
                 } catch (Exception e) {
                     Log.w(TAG, "Failed to publish ad timestamps to Nostr", e);
                 }

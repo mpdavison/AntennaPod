@@ -29,6 +29,7 @@ import java.util.Locale;
 import java.util.TimeZone;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -295,8 +296,9 @@ public class NostrClient {
         }
     }
 
-    public static void publishAdTimestamps(String md5, List<long[]> ads,
+    public static boolean publishAdTimestamps(String md5, List<long[]> ads,
             String feedUrl, String episodeTitle, BigInteger privateKey) {
+        final CountDownLatch doneLatch = new CountDownLatch(1);
         try {
             String content = buildAdContent(ads, feedUrl, episodeTitle);
 
@@ -317,14 +319,19 @@ public class NostrClient {
                     .readTimeout(0, TimeUnit.MILLISECONDS)
                     .build();
 
-            for (String relayUrl : getRelays()) {
-                final boolean[] accepted = {false};
+            final String[] relays = getRelays();
+            final AtomicInteger pending = new AtomicInteger(relays.length);
+            final boolean[] accepted = {false};
+            for (final String relayUrl : relays) {
                 Request wsRequest = new Request.Builder().url(relayUrl).build();
                 client.newWebSocket(wsRequest, new WebSocketListener() {
                     @Override
                     public void onOpen(WebSocket webSocket, Response response) {
                         Log.i(TAG, "SEND opened to " + relayUrl);
-                        webSocket.send(eventStr);
+                        if (!webSocket.send(eventStr)) {
+                            Log.w(TAG, "SEND enqueue failed to " + relayUrl);
+                            failRelay(doneLatch, pending);
+                        }
                     }
 
                     @Override
@@ -333,8 +340,20 @@ public class NostrClient {
                         try {
                             JSONArray msg = new JSONArray(text);
                             if ("OK".equals(msg.optString(0))) {
-                                accepted[0] = true;
-                                webSocket.close(1000, null);
+                                if (msg.optBoolean(2, false)) {
+                                    accepted[0] = true;
+                                    Log.i(TAG, "SEND accepted by " + relayUrl);
+                                    webSocket.close(1000, null);
+                                    doneLatch.countDown();
+                                } else {
+                                    Log.w(TAG, "SEND rejected by " + relayUrl + ": "
+                                            + msg.optString(3, "unknown reason"));
+                                    failRelay(doneLatch, pending);
+                                }
+                            } else if ("CLOSED".equals(msg.optString(0))) {
+                                Log.w(TAG, "SEND rejected by " + relayUrl + ": "
+                                        + msg.optString(2, "unknown reason"));
+                                failRelay(doneLatch, pending);
                             }
                         } catch (JSONException e) {
                             Log.d(TAG, "Bad relay message", e);
@@ -351,12 +370,27 @@ public class NostrClient {
                         int code = response != null ? response.code() : -1;
                         Log.w(TAG, "SEND fail to " + relayUrl + ": " + msg
                                 + " http=" + code);
+                        failRelay(doneLatch, pending);
                     }
                 });
             }
-            Log.i(TAG, "Published ad timestamps to Nostr relays: " + md5);
+
+            doneLatch.await(RELAY_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+            if (accepted[0]) {
+                Log.i(TAG, "Published ad timestamps to Nostr: " + md5);
+            } else {
+                Log.w(TAG, "No Nostr relay accepted ad timestamps for " + md5);
+            }
+            return accepted[0];
         } catch (Exception e) {
             Log.w(TAG, "Failed to publish ad timestamps to Nostr", e);
+            return false;
+        }
+    }
+
+    private static void failRelay(CountDownLatch doneLatch, AtomicInteger pending) {
+        if (pending.decrementAndGet() <= 0) {
+            doneLatch.countDown();
         }
     }
 
