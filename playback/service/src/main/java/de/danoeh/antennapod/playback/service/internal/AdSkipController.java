@@ -1,6 +1,7 @@
 package de.danoeh.antennapod.playback.service.internal;
 
 import android.content.Context;
+import android.media.AudioAttributes;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.media.ToneGenerator;
@@ -379,6 +380,10 @@ public class AdSkipController {
             skipSoundPlayer.release();
         }
         skipSoundPlayer = player;
+        player.setAudioAttributes(new AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_MEDIA)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                .build());
         player.setOnCompletionListener(mp -> {
             mp.release();
             if (skipSoundPlayer == mp) {
